@@ -642,7 +642,7 @@ describe("scan output", () => {
     const ssrf = coverage.units.filter((unit) => unit.class === "ssrf");
     expect(injection.every((unit) => unit.status === "skipped")).toBe(true);
     expect(secrets.every((unit) => unit.status === "skipped")).toBe(true);
-    expect(ssrf.every((unit) => unit.status === "pending")).toBe(true);
+    expect(ssrf.every((unit) => unit.status === "skipped")).toBe(true);
     expect(authz.every((unit) => unit.status === "hunted" || unit.status === "skipped")).toBe(true);
     expect(authz.some((unit) => unit.status === "hunted")).toBe(true);
     expect(authz.some((unit) => unit.kind === "route" && unit.status === "skipped")).toBe(true);

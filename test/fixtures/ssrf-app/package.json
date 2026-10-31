@@ -1,0 +1,5 @@
+{
+  "name": "ssrf-app",
+  "private": true,
+  "type": "module"
+}

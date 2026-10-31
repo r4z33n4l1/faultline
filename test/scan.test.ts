@@ -109,7 +109,7 @@ it("scan writes recon output from FakeProvider and never emits the fixture secre
   expect(injection.every((unit) => unit.status === "skipped")).toBe(true);
   expect(secrets.length).toBeGreaterThan(0);
   expect(secrets.every((unit) => unit.status === "skipped")).toBe(true);
-  expect(ssrf.every((unit) => unit.status === "pending")).toBe(true);
+  expect(ssrf.every((unit) => unit.status === "skipped")).toBe(true);
   const candidates = candidatesFileSchema.parse(
     JSON.parse(files["candidates.json"] ?? "") as unknown,
   );
