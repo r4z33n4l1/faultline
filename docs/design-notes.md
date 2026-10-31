@@ -20,8 +20,12 @@ Access dates: 2026-10-29 (initial); 2026-10-31 (tools/guides refresh). See `insp
 ## PR2+
 
 10. Per-class hunters + fresh disproof validator (Cloudflare / OpenSSF / Anthropic shape).
-11. Thin recon → optional `architecture.md`; full ledger only when multi-run noise hurts.
+11. Thin recon writes `architecture.md` and a pending coverage ledger (PR2). Hunter status updates and a coverage critic wait until multi-run noise hurts.
 12. `faultline pr`: inline comments + suggested fix (Factory / Devin / DryRun / ZeroPath pattern).
 13. Human-gated patch → prove (Codex / Daybreak / CodeMender posture); SARIF `fixes[]` when patches exist.
 14. Dedup by `root_cause` / `id`; re-verify carried confirms on current source.
 15. Prefer different models for hunt vs validate when configured; treat target content as untrusted in prompts (Cloudflare Oct PR theme).
+
+## PR2 — recon
+
+Deterministic inventory in `src/recon/` respects `.gitignore`, skips dependency and build directories, skips binaries, and caps file count and bytes. Env and config files are names only; contents are not read. One fenced `ModelProvider` call can write `architecture.md`. With no provider, that file is labeled inventory-only. The CLI accepts `--provider` / `FAULTLINE_PROVIDER` and reads `FAULTLINE_API_KEY` without printing it. No hosted adapter is wired. `coverage.json` is file or route × `authz_idor` | `injection` | `secrets` | `ssrf`, and recon sets every row to `pending`. Hunters, disproof, `faultline pr` comments, and SARIF remain later.

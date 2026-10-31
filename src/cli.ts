@@ -5,6 +5,9 @@ import { pathToFileURL } from "node:url";
 import { Command, CommanderError } from "commander";
 import { writeRunOutput } from "./output.js";
 import { runPipeline } from "./pipeline.js";
+import { providerUnavailableMessage, resolveProviderConfig } from "./providers/config.js";
+import type { ModelProvider } from "./providers/types.js";
+import { executeScan } from "./recon/run.js";
 import { findingsFileSchema, formatZodIssues, type RunMode } from "./schema/finding.js";
 import { TOOL_VERSION } from "./version.js";
 
@@ -12,6 +15,9 @@ export interface CliIo {
   stdout: (text: string) => void;
   stderr: (text: string) => void;
   cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  /** Test seam. The CLI does not construct a hosted provider. */
+  provider?: ModelProvider;
 }
 
 const defaultIo: CliIo = {
@@ -59,6 +65,15 @@ async function validateFile(filePath: string, io: CliIo): Promise<number> {
   return 0;
 }
 
+function wroteLine(outDir: string, names: readonly string[]): string {
+  const paths = names.map((name) => resolve(outDir, name));
+  if (paths.length < 2) {
+    return `Wrote ${paths.join("")}\n`;
+  }
+  const last = paths[paths.length - 1];
+  return `Wrote ${paths.slice(0, -1).join(", ")} and ${last}\n`;
+}
+
 async function runStub(mode: RunMode, target: string, out: string, io: CliIo): Promise<number> {
   const cwd = io.cwd ?? process.cwd();
   const outDir = resolve(cwd, out);
@@ -69,7 +84,36 @@ async function runStub(mode: RunMode, target: string, out: string, io: CliIo): P
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(`Wrote ${resolve(outDir, "findings.json")} and ${resolve(outDir, "report.md")}\n`);
+  io.stdout(wroteLine(outDir, ["findings.json", "report.md"]));
+  return 0;
+}
+
+async function runScan(
+  target: string,
+  out: string,
+  providerFlag: string | undefined,
+  io: CliIo,
+): Promise<number> {
+  const cwd = io.cwd ?? process.cwd();
+  const env = io.env ?? process.env;
+  const outDir = resolve(cwd, out);
+  const config = resolveProviderConfig(providerFlag, env);
+  if (io.provider === undefined && config.name !== undefined) {
+    io.stderr(`${providerUnavailableMessage(config)}\n`);
+    return 1;
+  }
+  try {
+    await executeScan({
+      target,
+      cwd,
+      outDir,
+      provider: io.provider,
+    });
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  io.stdout(wroteLine(outDir, ["findings.json", "report.md", "architecture.md", "coverage.json"]));
   return 0;
 }
 
@@ -100,11 +144,12 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
 
   program
     .command("scan")
-    .description("Run an empty scan pipeline and write findings.json plus report.md")
-    .argument("<path>", "target path")
+    .description("Inventory a directory and write findings, report, architecture, and coverage")
+    .argument("<path>", "target directory")
     .option("-o, --out <dir>", "output directory", "./faultline-out")
-    .action(async (target: string, opts: { out: string }) => {
-      code = await runStub("scan", target, opts.out, io);
+    .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
+    .action(async (target: string, opts: { out: string; provider?: string }) => {
+      code = await runScan(target, opts.out, opts.provider, io);
     });
 
   program

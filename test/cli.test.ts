@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -67,16 +67,21 @@ it("validate exits 1 for missing files and invalid JSON", async () => {
 
 it("scan defaults --out to ./faultline-out", async () => {
   const dir = await tempDir();
+  await mkdir(join(dir, "src"));
   const io = capture();
-  expect(await runCli(["scan", "src"], { ...io.io, cwd: dir })).toBe(0);
+  expect(await runCli(["scan", "src"], { ...io.io, cwd: dir, env: {} })).toBe(0);
   const findings = findingsFileSchema.parse(
     JSON.parse(await readFile(join(dir, "faultline-out", "findings.json"), "utf8")) as unknown,
   );
   expect(findings.run.mode).toBe("scan");
   expect(findings.run.target).toBe("src");
   expect(findings.findings).toEqual([]);
+  expect(findings.run.provider).toBeUndefined();
   expect(await readFile(join(dir, "faultline-out", "report.md"), "utf8")).toContain(
     "No confirmed findings.",
+  );
+  expect(await readFile(join(dir, "faultline-out", "architecture.md"), "utf8")).toContain(
+    "Inventory only.",
   );
 });
 
@@ -86,7 +91,7 @@ it("scan and pr write a valid empty findings file and report", async () => {
   const prOut = join(dir, "pr-out");
 
   const scan = capture();
-  expect(await runCli(["scan", ".", "--out", scanOut], { ...scan.io, cwd: dir })).toBe(0);
+  expect(await runCli(["scan", ".", "--out", scanOut], { ...scan.io, cwd: dir, env: {} })).toBe(0);
   const scanFindings = findingsFileSchema.parse(
     JSON.parse(await readFile(join(scanOut, "findings.json"), "utf8")) as unknown,
   );
@@ -107,4 +112,6 @@ it("scan and pr write a valid empty findings file and report", async () => {
   expect(prFindings.findings).toEqual([]);
   expect(prFindings.run.mode).toBe("pr");
   expect(prFindings.run.target).toBe(target);
+  await expect(readFile(join(prOut, "architecture.md"), "utf8")).rejects.toThrow();
+  await expect(readFile(join(prOut, "coverage.json"), "utf8")).rejects.toThrow();
 });

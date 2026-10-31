@@ -1,0 +1,4 @@
+# fixture ignores
+ignored.ts
+skipme/
+*.log
