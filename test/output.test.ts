@@ -39,6 +39,7 @@ it("omits rejected candidates from findings.json and report.md", async () => {
 
   const findingsText = await readFile(join(dir, "findings.json"), "utf8");
   const report = await readFile(join(dir, "report.md"), "utf8");
+  const sarifText = await readFile(join(dir, "findings.sarif"), "utf8");
   const parsed = findingsFileSchema.parse(JSON.parse(findingsText) as unknown);
   expect(parsed).toEqual(written);
   expect(findingsText).not.toContain("REJECTED_MARKER");
@@ -46,6 +47,11 @@ it("omits rejected candidates from findings.json and report.md", async () => {
   expect(report).not.toContain("REJECTED_MARKER");
   expect(report).not.toContain("NEEDS_VALIDATION_MARKER");
   expect(report).toContain("fp_sql_concat_user");
+  expect(sarifText).not.toContain("REJECTED_MARKER");
+  expect(sarifText).not.toContain("NEEDS_VALIDATION_MARKER");
+  expect(sarifText).not.toContain("fp_rejected_marker");
+  expect(sarifText).not.toContain("fp_needs_validation_marker");
+  expect(sarifText).toContain("SQL query concatenates the user id from the request.");
 });
 
 it("refuses to write when a confirmed finding is invalid", async () => {
@@ -65,4 +71,5 @@ it("refuses to write when a confirmed finding is invalid", async () => {
   ).rejects.toThrow(/findings\.0\.location\.start_line/);
   await expect(readFile(join(dir, "findings.json"), "utf8")).rejects.toThrow();
   await expect(readFile(join(dir, "report.md"), "utf8")).rejects.toThrow();
+  await expect(readFile(join(dir, "findings.sarif"), "utf8")).rejects.toThrow();
 });

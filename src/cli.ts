@@ -79,12 +79,12 @@ async function runStub(mode: RunMode, target: string, out: string, io: CliIo): P
   const outDir = resolve(cwd, out);
   try {
     const file = runPipeline({ mode, target });
-    await writeRunOutput(outDir, file);
+    await writeRunOutput(outDir, file, { scanRoot: resolve(cwd) });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(wroteLine(outDir, ["findings.json", "report.md"]));
+  io.stdout(wroteLine(outDir, ["findings.json", "report.md", "findings.sarif"]));
   return 0;
 }
 
@@ -113,7 +113,15 @@ async function runScan(
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(wroteLine(outDir, ["findings.json", "report.md", "architecture.md", "coverage.json"]));
+  io.stdout(
+    wroteLine(outDir, [
+      "findings.json",
+      "report.md",
+      "findings.sarif",
+      "architecture.md",
+      "coverage.json",
+    ]),
+  );
   return 0;
 }
 
@@ -144,7 +152,9 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
 
   program
     .command("scan")
-    .description("Inventory a directory and write findings, report, architecture, and coverage")
+    .description(
+      "Inventory a directory and write findings, report, SARIF, architecture, and coverage",
+    )
     .argument("<path>", "target directory")
     .option("-o, --out <dir>", "output directory", "./faultline-out")
     .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
@@ -154,7 +164,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
 
   program
     .command("pr")
-    .description("Run an empty pull-request pipeline and write findings.json plus report.md")
+    .description("Run an empty pull-request pipeline and write findings, report, and SARIF")
     .argument("<url-or-diff>", "pull request URL or diff path")
     .option("-o, --out <dir>", "output directory", "./faultline-out")
     .action(async (target: string, opts: { out: string }) => {

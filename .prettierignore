@@ -6,3 +6,4 @@ docs/inspiration.md
 docs/design-notes.md
 schema/findings.schema.json
 schema/coverage.schema.json
+test/fixtures/sarif/sarif-schema-2.1.0.json

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/cli.js";
+import { sarifLogSchema } from "../src/sarif.js";
 import { findingsFileSchema } from "../src/schema/finding.js";
 import { cloneFixture, loadFixtureText } from "./fixture.js";
 
@@ -83,6 +84,11 @@ it("scan defaults --out to ./faultline-out", async () => {
   expect(await readFile(join(dir, "faultline-out", "architecture.md"), "utf8")).toContain(
     "Inventory only.",
   );
+  const sarif = sarifLogSchema.parse(
+    JSON.parse(await readFile(join(dir, "faultline-out", "findings.sarif"), "utf8")) as unknown,
+  );
+  expect(sarif.runs[0].results).toEqual([]);
+  expect(io.stdout()).toContain("findings.sarif");
 });
 
 it("scan and pr write a valid empty findings file and report", async () => {
@@ -102,6 +108,12 @@ it("scan and pr write a valid empty findings file and report", async () => {
   expect(scanReport).toContain("# Faultline report");
   expect(scanReport).toContain("- critical: 0");
   expect(scanReport).toContain("No confirmed findings.");
+  const scanSarif = sarifLogSchema.parse(
+    JSON.parse(await readFile(join(scanOut, "findings.sarif"), "utf8")) as unknown,
+  );
+  expect(scanSarif.version).toBe("2.1.0");
+  expect(scanSarif.runs[0].results).toEqual([]);
+  expect(scan.stdout()).toContain("findings.sarif");
 
   const pr = capture();
   const target = "https://github.com/org/repo/pull/1";
@@ -112,6 +124,12 @@ it("scan and pr write a valid empty findings file and report", async () => {
   expect(prFindings.findings).toEqual([]);
   expect(prFindings.run.mode).toBe("pr");
   expect(prFindings.run.target).toBe(target);
+  const prSarif = sarifLogSchema.parse(
+    JSON.parse(await readFile(join(prOut, "findings.sarif"), "utf8")) as unknown,
+  );
+  expect(prSarif.runs[0].results).toEqual([]);
+  expect(prSarif.runs[0].tool.driver.name).toBe("faultline");
+  expect(pr.stdout()).toContain("findings.sarif");
   await expect(readFile(join(prOut, "architecture.md"), "utf8")).rejects.toThrow();
   await expect(readFile(join(prOut, "coverage.json"), "utf8")).rejects.toThrow();
 });
