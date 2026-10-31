@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -502,7 +502,9 @@ describe("findings.sarif writer", () => {
       stderr: () => undefined,
     };
     expect(await runCli(["scan", ".", "--out", scanOut], io)).toBe(0);
-    expect(await runCli(["pr", "https://github.com/org/repo/pull/1", "--out", prOut], io)).toBe(0);
+    const diffPath = join(dir, "empty.diff");
+    await writeFile(diffPath, "");
+    expect(await runCli(["pr", diffPath, "--repo", ".", "--out", prOut], io)).toBe(0);
     for (const out of [scanOut, prOut]) {
       const raw = JSON.parse(await readFile(join(out, "findings.sarif"), "utf8")) as unknown;
       expectValidSarif(raw);

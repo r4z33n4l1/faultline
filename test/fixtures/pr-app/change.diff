@@ -1,0 +1,15 @@
+diff --git a/src/app.ts b/src/app.ts
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -30,4 +30,11 @@
+   res.send(req.params.id);
+ });
+ 
++app.get("/notes/:noteId", async (req, res) => {
++  const note = await prisma.note.findUnique({
++    where: { id: req.params.noteId },
++  });
++  res.json(note);
++});
++
+ export { app };

@@ -50,6 +50,10 @@ export interface WriteRunOptions {
   scanRoot?: string;
   /** Included in report.md as a count only. Omitted for commands that do not hunt. */
   unvalidatedCandidates?: number;
+  /** Set for a PR-scoped run. Lists repo-relative changed files. An empty list is still PR-scoped. */
+  changedFiles?: readonly string[];
+  /** Context window recorded in a PR-scoped report. */
+  hunkContext?: number;
 }
 
 export async function writeRunOutput(
@@ -65,6 +69,8 @@ export async function writeRunOutput(
   const findingsText = serializeFindings(file);
   const reportText = renderReport(file, {
     unvalidatedCandidates: options.unvalidatedCandidates,
+    changedFiles: options.changedFiles,
+    hunkContext: options.hunkContext,
   });
   const sarifText = serializeSarif(toSarif(file, scanRoot));
   await mkdir(outDir, { recursive: true });

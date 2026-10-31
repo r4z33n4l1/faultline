@@ -25,6 +25,19 @@ export interface ScanRequest {
   runId?: string;
 }
 
+export async function runHunters(ctx: HunterContext): Promise<Candidate[]> {
+  const candidates: Candidate[] = [];
+  for (const hunter of hunters) {
+    const found = await hunter.run(ctx);
+    for (const candidate of found) {
+      if (candidate.class === hunter.class) {
+        candidates.push(candidate);
+      }
+    }
+  }
+  return candidates;
+}
+
 export async function executeScan(request: ScanRequest): Promise<void> {
   const abs = resolve(request.cwd, request.target);
   const inventory = await collectInventory(abs, { target: request.target });
@@ -43,15 +56,7 @@ export async function executeScan(request: ScanRequest): Promise<void> {
   if (request.provider !== undefined) {
     ctx.provider = request.provider;
   }
-  const candidates: Candidate[] = [];
-  for (const hunter of hunters) {
-    const found = await hunter.run(ctx);
-    for (const candidate of found) {
-      if (candidate.class === hunter.class) {
-        candidates.push(candidate);
-      }
-    }
-  }
+  const candidates = await runHunters(ctx);
   const coverage = applyCoverageMarks(buildCoverage(request.target, inventory), marks);
   const findings = runPipeline({
     mode: "scan",
