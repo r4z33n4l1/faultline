@@ -649,7 +649,7 @@ describe("secrets scan output", () => {
     expect(secrets.every((unit) => unit.status === "hunted" || unit.status === "skipped")).toBe(
       true,
     );
-    expect(ssrf.every((unit) => unit.status === "pending")).toBe(true);
+    expect(ssrf.every((unit) => unit.status === "skipped")).toBe(true);
 
     const offline = await mkdtemp(join(tmpdir(), "faultline-secrets-offline-"));
     const offlineIo = capture();

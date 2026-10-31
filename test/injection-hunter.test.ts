@@ -710,7 +710,7 @@ describe("injection scan output", () => {
     const secrets = coverage.units.filter((unit) => unit.class === "secrets");
     const ssrf = coverage.units.filter((unit) => unit.class === "ssrf");
     expect(secrets.every((unit) => unit.status === "skipped")).toBe(true);
-    expect(ssrf.every((unit) => unit.status === "pending")).toBe(true);
+    expect(ssrf.every((unit) => unit.status === "skipped")).toBe(true);
     expect(injection.every((unit) => unit.status === "hunted" || unit.status === "skipped")).toBe(
       true,
     );

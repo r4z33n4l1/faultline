@@ -61,3 +61,15 @@ Raw secret values are not written to `candidates.json`, `report.md`, `findings.j
 Secrets coverage rows become `hunted` or `skipped`. Route rows are `skipped` because this hunter reviews files. The ledger has no config-file or env-file unit, so those reviews show up as candidates only. SSRF stays `pending`. `findings.json` and SARIF stay empty. `faultline pr` does not hunt.
 
 Not in this pass: interprocedural secret tracking, a full parser, split-string assembly, manifest and shell scanning, live verification against a provider API, and the disproof validator.
+
+## PR7 — SSRF hunter
+
+Same hunter contract. `src/hunters/ssrf.ts` selects CWE-918 sinks in the same function when request input reaches an outbound HTTP call. Class is `ssrf`. Sinks are `fetch`, `axios` calls, `got`, `node-fetch`, undici `request`, and `http` / `https` `.request` / `.get`, plus a `URL` whose host or path is built from that input. Request input is `req` / `request` `.params`, `.query`, `.body`, and `.headers`, and on Express, Fastify, and Next handlers the route `params` object and `nextUrl.searchParams`.
+
+A webhook or callback field that is stored and then fetched in the same function is flagged. A server-side redirect is flagged when the host is request-controlled: either the client follows redirects by default (`fetch`, `axios`, `got`, `node-fetch`) or the function reads a `Location` header from a user-controlled response and requests it. `http` / `https` and undici `request` do not follow redirects unless the call opts in or the function fetches the location itself.
+
+A hostname allowlist (`includes` / `has`) or a comparison of `hostname` / `host` to a constant before the call is mitigated. The model still reviews that sink. The heuristic pass does not emit it. A fixed absolute base URL whose only request data is a path segment wrapped in `encodeURIComponent` is not a candidate. Heuristic candidates are low confidence. When the function does not mention a private-IP or metadata block (`169.254.169.254`, `localhost`, RFC1918), the candidate notes that. A string block alone does not clear the candidate.
+
+One fenced model call per selected sink, including mitigated sinks, with the shared 8 / 4000 / 3 bounds, zod, and grounding. SSRF coverage rows become `hunted` or `skipped`. `findings.json` and SARIF stay empty. `faultline pr` does not hunt.
+
+Not in this pass: interprocedural taint, a full JavaScript parser, DNS resolution and rebinding, redirect chains across functions, `axios.create` / `got.extend` instances, client-side open redirects that the server does not follow, and the disproof validator.

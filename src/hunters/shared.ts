@@ -22,9 +22,51 @@ export function compareString(left: string, right: string): number {
   return 0;
 }
 
+/** Drop comments while keeping newlines. Slashes inside strings and templates stay. */
 export function stripComments(source: string): string {
-  const noBlock = source.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " "));
-  return noBlock.replace(/\/\/[^\n]*/g, "");
+  let result = "";
+  let quote: "'" | '"' | "`" | undefined;
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const ch = source[index] ?? "";
+    const next = source[index + 1] ?? "";
+    if (quote !== undefined) {
+      result += ch;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      result += ch;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      index += 1;
+      while (index + 1 < source.length && source[index + 1] !== "\n") {
+        index += 1;
+      }
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      index += 2;
+      while (index < source.length && !(source[index] === "*" && source[index + 1] === "/")) {
+        if (source[index] === "\n") {
+          result += "\n";
+        }
+        index += 1;
+      }
+      index += 1;
+      continue;
+    }
+    result += ch;
+  }
+  return result;
 }
 
 export function stripQuoted(line: string): string {
