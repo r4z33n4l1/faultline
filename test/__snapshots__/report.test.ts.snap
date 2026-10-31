@@ -1,0 +1,62 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renders a deterministic report 1`] = `
+"# Faultline report
+
+faultline 0.0.0 checked \`.\` in scan mode.
+Run run_fixture_1 started 2026-10-31T12:00:00.000Z.
+Provider: fake.
+
+## Summary
+
+- informational: 0
+- low: 1
+- medium: 0
+- high: 1
+- critical: 0
+
+2 confirmed findings.
+
+## Findings
+
+### 1. SQL query concatenates the user id from the request.
+
+Confirmed injection finding \`fp_sql_concat_user\` at \`src/db.ts:40-44\`.
+Severity is high. Confidence is high: Request input is concatenated into a SQL string.
+Exploitability is theoretical.
+Weakness: CWE-89.
+
+Evidence:
+- \`src/db.ts:42\`: Template string includes req.query.id.
+
+Disproof attempts:
+- validator (confirmed): No parameterization on this path.
+
+Suggested fix: Bind the user id as a query parameter.
+
+\`\`\`
+db.query("select * from users where id = $1", [id])
+\`\`\`
+
+References:
+- CWE-89
+- https://cwe.mitre.org/data/definitions/89.html
+
+### 2. Hardcoded API token in config.ts.
+
+Confirmed secrets finding \`fp_hardcoded_token\` at \`src/config.ts:8\`.
+Severity is low. Confidence is medium: A token literal sits in source.
+Exploitability is poc.
+
+Evidence:
+- \`src/config.ts:8\`: Assignment uses a string literal token.
+
+Disproof attempts:
+- validator (confirmed): The literal is compiled into the bundle.
+
+Suggested fix: Read the token from the environment.
+
+References:
+None.
+"
+`;
