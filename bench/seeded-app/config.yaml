@@ -1,0 +1,5 @@
+# Synthetic bench values. Not credentials. See bench/README.md.
+service: parcel-desk
+client_secret: "n8Q2m4K7p1R6tX9vB3cL0w"
+password: "changeme"
+api_key: "example-api-key"

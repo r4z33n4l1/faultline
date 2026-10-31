@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { readFile, stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Command, CommanderError } from "commander";
+import { Command, CommanderError, Option } from "commander";
+import { executeBench, recordedModel } from "./bench/run.js";
+import type { BenchStage } from "./bench/result.js";
 import {
   assertDiffWithinLimit,
   githubPullRequestMessage,
@@ -181,6 +183,58 @@ async function runScan(
   return 0;
 }
 
+function isBenchStage(value: string): value is BenchStage {
+  return value === "candidates" || value === "findings";
+}
+
+async function runBench(
+  target: string,
+  out: string,
+  stage: string,
+  truthFlag: string | undefined,
+  providerFlag: string | undefined,
+  modelFlag: string | undefined,
+  io: CliIo,
+): Promise<number> {
+  if (!isBenchStage(stage)) {
+    io.stderr("stage must be candidates or findings\n");
+    return 1;
+  }
+  const cwd = io.cwd ?? process.cwd();
+  const env = io.env ?? process.env;
+  const config = resolveProviderConfig(providerFlag, env, modelFlag);
+  const outDir = resolve(cwd, out);
+  let provider: ModelProvider | undefined;
+  try {
+    provider = await openProvider(providerFlag, modelFlag, io);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  const providerName = provider?.name ?? config.name;
+  const model = recordedModel({
+    ...(providerName === undefined ? {} : { name: providerName }),
+    ...(config.model === undefined ? {} : { model: config.model }),
+  });
+  const truthPath = truthFlag ?? join(target, "truth.json");
+  try {
+    await executeBench({
+      target,
+      cwd,
+      outDir,
+      stage,
+      truthPath,
+      model,
+      ...(provider === undefined ? {} : { provider }),
+    });
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
+  return 0;
+}
+
 async function runPr(
   source: string,
   out: string,
@@ -291,6 +345,38 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .action(async (target: string, opts: { out: string; provider?: string; model?: string }) => {
       code = await runScan(target, opts.out, opts.provider, opts.model, io);
     });
+
+  program
+    .command("bench")
+    .description(
+      "Scan a directory and score candidates or findings against truth.json. Does not promote candidates",
+    )
+    .argument("<dir>", "directory that contains the app and, by default, truth.json")
+    .option("-o, --out <dir>", "output directory", "./faultline-bench")
+    .addOption(
+      new Option("--stage <stage>", "score candidates.json or findings.json")
+        .choices(["candidates", "findings"])
+        .default("candidates"),
+    )
+    .option("--truth <file>", "truth file (default <dir>/truth.json)")
+    .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
+    .option("--model <id>", "model id (overrides FAULTLINE_MODEL)")
+    .action(
+      async (
+        target: string,
+        opts: { out: string; stage: string; truth?: string; provider?: string; model?: string },
+      ) => {
+        code = await runBench(
+          target,
+          opts.out,
+          opts.stage,
+          opts.truth,
+          opts.provider,
+          opts.model,
+          io,
+        );
+      },
+    );
 
   program
     .command("pr")

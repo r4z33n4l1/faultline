@@ -7,4 +7,5 @@ docs/design-notes.md
 schema/findings.schema.json
 schema/coverage.schema.json
 schema/candidates.schema.json
+schema/truth.schema.json
 test/fixtures/sarif/sarif-schema-2.1.0.json

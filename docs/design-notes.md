@@ -85,3 +85,9 @@ Recon inventories the whole `--repo` tree. `architecture.md` marks the changed f
 Outputs match `scan`: `findings.json`, `report.md`, `findings.sarif`, `candidates.json`, `architecture.md`, and `coverage.json`. `report.md` says the run is PR-scoped and lists the changed files. Findings stay empty. The validator is still a separate change.
 
 Not in this pass: fetching a pull request, inline review comments, applying the diff onto a tree, interprocedural taint, and promoting candidates to findings.
+
+## Bench harness
+
+`faultline bench <dir>` is the measuring tool. It scans the directory, then scores `candidates.json` or, with `--stage findings`, `findings.json` against `truth.json`. Matching is class plus normalized path plus inclusive line overlap. The confusion matrix is site-level: a labeled site is one true positive, false positive, false negative, or true negative. The score is TPR minus FPR. Unmatched detections are listed and are not folded into the false-positive count. Bench does not promote candidates and does not contain the validator.
+
+`bench/seeded-app` is a separate Express tree from `test/fixtures`, with vulnerable sites and look-alike safe sites for the four hunter classes. Secrets in it are synthetic bench strings or a documented example joined at runtime. CI checks the harness math on a synthetic truth set and checks that seeded labels point at real lines. CI does not assert detection rates on the seeded app, and it does not call a model. A result is citable only when provider, model, and commit are recorded.

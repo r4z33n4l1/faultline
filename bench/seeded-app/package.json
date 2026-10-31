@@ -1,0 +1,9 @@
+{
+  "name": "parcel-desk",
+  "private": true,
+  "type": "module",
+  "description": "Seeded bench app for Faultline. Scanned as text. Not a server to run.",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

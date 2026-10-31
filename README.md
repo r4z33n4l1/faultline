@@ -16,6 +16,7 @@ pnpm install
 pnpm build
 pnpm exec faultline validate path/to/findings.json
 pnpm exec faultline scan .
+pnpm exec faultline bench bench/seeded-app
 pnpm exec faultline pr path/to/change.diff --repo .
 gh pr diff https://github.com/org/repo/pull/1 | pnpm exec faultline pr -
 ```
@@ -115,6 +116,10 @@ Recon still covers the repository. `architecture.md` and `report.md` say the run
 `pr` writes the same files as `scan`. `findings.json` and `findings.sarif` stay empty until a validator exists.
 
 `validate` prints schema errors with their paths and exits non-zero on failure.
+
+## Bench
+
+`faultline bench <dir>` scans that directory and scores `candidates.json` against `<dir>/truth.json`. `--stage findings` scores `findings.json` instead. Until a validator exists, that stage reports no detections. Bench does not promote candidates. The method, the seeded app, and why a table is not a product result are in [bench/README.md](bench/README.md).
 
 ## Develop
 

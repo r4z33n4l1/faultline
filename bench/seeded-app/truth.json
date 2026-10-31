@@ -1,0 +1,311 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "authz-document-download",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "src/routes/documents.ts",
+      "start_line": 15,
+      "end_line": 20,
+      "vulnerable": false
+    },
+    {
+      "id": "authz-document-read",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "src/routes/documents.ts",
+      "start_line": 8,
+      "end_line": 13,
+      "vulnerable": true
+    },
+    {
+      "id": "authz-folder-read",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "src/routes/documents.ts",
+      "start_line": 22,
+      "end_line": 25,
+      "vulnerable": true
+    },
+    {
+      "id": "authz-folder-update",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "src/routes/documents.ts",
+      "start_line": 27,
+      "end_line": 31,
+      "vulnerable": false
+    },
+    {
+      "id": "authz-invoice-read",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "src/routes/billing.ts",
+      "start_line": 8,
+      "end_line": 11,
+      "vulnerable": true
+    },
+    {
+      "id": "authz-invoice-tenant",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "src/routes/billing.ts",
+      "start_line": 13,
+      "end_line": 17,
+      "vulnerable": false
+    },
+    {
+      "id": "authz-share-create",
+      "class": "authz_idor",
+      "cwe": "CWE-862",
+      "file": "src/routes/shares.ts",
+      "start_line": 6,
+      "end_line": 9,
+      "vulnerable": true
+    },
+    {
+      "id": "authz-share-delete",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "src/routes/share-admin.ts",
+      "start_line": 8,
+      "end_line": 12,
+      "vulnerable": false
+    },
+    {
+      "id": "inj-note-filter",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "src/routes/search.ts",
+      "start_line": 26,
+      "end_line": 30,
+      "vulnerable": true
+    },
+    {
+      "id": "inj-note-find",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "src/routes/search.ts",
+      "start_line": 12,
+      "end_line": 16,
+      "vulnerable": false
+    },
+    {
+      "id": "inj-note-formula",
+      "class": "injection",
+      "cwe": "CWE-94",
+      "file": "src/routes/tools.ts",
+      "start_line": 20,
+      "end_line": 24,
+      "vulnerable": true
+    },
+    {
+      "id": "inj-note-search",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "src/routes/search.ts",
+      "start_line": 6,
+      "end_line": 10,
+      "vulnerable": true
+    },
+    {
+      "id": "inj-note-sort",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "src/routes/search.ts",
+      "start_line": 18,
+      "end_line": 24,
+      "vulnerable": false
+    },
+    {
+      "id": "inj-note-total",
+      "class": "injection",
+      "cwe": "CWE-94",
+      "file": "src/routes/tools.ts",
+      "start_line": 26,
+      "end_line": 32,
+      "vulnerable": false
+    },
+    {
+      "id": "inj-parcel-convert",
+      "class": "injection",
+      "cwe": "CWE-78",
+      "file": "src/routes/tools.ts",
+      "start_line": 6,
+      "end_line": 11,
+      "vulnerable": true
+    },
+    {
+      "id": "inj-parcel-convert-file",
+      "class": "injection",
+      "cwe": "CWE-78",
+      "file": "src/routes/tools.ts",
+      "start_line": 13,
+      "end_line": 18,
+      "vulnerable": false
+    },
+    {
+      "id": "secret-client-secret",
+      "class": "secrets",
+      "cwe": "CWE-312",
+      "file": "config.yaml",
+      "start_line": 3,
+      "end_line": 3,
+      "vulnerable": true
+    },
+    {
+      "id": "secret-config-api-key",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "config.yaml",
+      "start_line": 5,
+      "end_line": 5,
+      "vulnerable": false
+    },
+    {
+      "id": "secret-config-password",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "config.yaml",
+      "start_line": 4,
+      "end_line": 4,
+      "vulnerable": false
+    },
+    {
+      "id": "secret-documented-access-key",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "src/credentials.ts",
+      "start_line": 6,
+      "end_line": 6,
+      "vulnerable": false
+    },
+    {
+      "id": "secret-example-api-key",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "src/credentials.ts",
+      "start_line": 14,
+      "end_line": 14,
+      "vulnerable": false
+    },
+    {
+      "id": "secret-jwt",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "src/credentials.ts",
+      "start_line": 8,
+      "end_line": 8,
+      "vulnerable": true
+    },
+    {
+      "id": "secret-partner-api-key",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "src/credentials.ts",
+      "start_line": 10,
+      "end_line": 10,
+      "vulnerable": true
+    },
+    {
+      "id": "secret-sample-jwt",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "src/credentials.ts",
+      "start_line": 12,
+      "end_line": 12,
+      "vulnerable": false
+    },
+    {
+      "id": "secret-session-log",
+      "class": "secrets",
+      "cwe": "CWE-532",
+      "file": "src/credentials.ts",
+      "start_line": 19,
+      "end_line": 19,
+      "vulnerable": true
+    },
+    {
+      "id": "secret-session-token",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "src/credentials.ts",
+      "start_line": 16,
+      "end_line": 16,
+      "vulnerable": true
+    },
+    {
+      "id": "ssrf-asset-allowlist",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 35,
+      "end_line": 43,
+      "vulnerable": false
+    },
+    {
+      "id": "ssrf-health-fixed",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 61,
+      "end_line": 64,
+      "vulnerable": false
+    },
+    {
+      "id": "ssrf-hook-callback",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 15,
+      "end_line": 20,
+      "vulnerable": true
+    },
+    {
+      "id": "ssrf-import-page",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 29,
+      "end_line": 33,
+      "vulnerable": true
+    },
+    {
+      "id": "ssrf-label-path",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 55,
+      "end_line": 59,
+      "vulnerable": false
+    },
+    {
+      "id": "ssrf-mirror-host",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 45,
+      "end_line": 53,
+      "vulnerable": false
+    },
+    {
+      "id": "ssrf-probe-host",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 22,
+      "end_line": 27,
+      "vulnerable": true
+    },
+    {
+      "id": "ssrf-remote-url",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "src/routes/remote.ts",
+      "start_line": 9,
+      "end_line": 13,
+      "vulnerable": true
+    }
+  ]
+}
