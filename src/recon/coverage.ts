@@ -2,15 +2,53 @@ import {
   COVERAGE_CLASSES,
   COVERAGE_SCHEMA_VERSION,
   coverageFileSchema,
+  type CoverageClass,
   type CoverageFile,
+  type CoverageStatus,
   type CoverageUnit,
 } from "../schema/coverage.js";
 import type { Inventory } from "./inventory.js";
 
 export const PENDING_REASON = "not hunted yet";
 
+export function fileCoverageId(path: string, bug: CoverageClass): string {
+  return `file:${path}:${bug}`;
+}
+
+export function routeCoverageId(
+  route: { path: string; line: number; note: string },
+  bug: CoverageClass,
+): string {
+  return `route:${route.path}:${route.line}:${route.note}:${bug}`;
+}
+
+export interface CoverageMark {
+  status: Extract<CoverageStatus, "hunted" | "skipped">;
+  reason: string;
+}
+
 export function serializeCoverage(file: CoverageFile): string {
   return `${JSON.stringify(coverageFileSchema.parse(file), null, 2)}\n`;
+}
+
+/** Hunters replace pending rows. Unknown ids are left unchanged. */
+export function applyCoverageMarks(
+  coverage: CoverageFile,
+  marks: ReadonlyMap<string, CoverageMark>,
+): CoverageFile {
+  if (marks.size === 0) {
+    return coverage;
+  }
+  return coverageFileSchema.parse({
+    ...coverage,
+    units: coverage.units.map((unit) => {
+      const mark = marks.get(unit.id);
+      if (mark === undefined) {
+        return unit;
+      }
+      return { ...unit, status: mark.status, reason: mark.reason };
+    }),
+  });
 }
 
 /** Recon records every file and route against each bug class as pending. */
@@ -19,7 +57,7 @@ export function buildCoverage(target: string, inventory: Inventory): CoverageFil
   for (const path of inventory.source_files) {
     for (const bug of COVERAGE_CLASSES) {
       units.push({
-        id: `file:${path}:${bug}`,
+        id: fileCoverageId(path, bug),
         kind: "file",
         path,
         class: bug,
@@ -31,7 +69,7 @@ export function buildCoverage(target: string, inventory: Inventory): CoverageFil
   for (const route of inventory.routes) {
     for (const bug of COVERAGE_CLASSES) {
       units.push({
-        id: `route:${route.path}:${route.line}:${route.note}:${bug}`,
+        id: routeCoverageId(route, bug),
         kind: "route",
         path: route.path,
         route: route.note,

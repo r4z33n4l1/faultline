@@ -6,6 +6,7 @@ import { runCli, type CliIo } from "../src/cli.js";
 import { providerUnavailableMessage, resolveProviderConfig } from "../src/providers/config.js";
 import { FakeProvider } from "../src/providers/types.js";
 import { sarifLogSchema } from "../src/sarif.js";
+import { candidatesFileSchema } from "../src/schema/candidate.js";
 import { coverageFileSchema } from "../src/schema/coverage.js";
 import { findingsFileSchema } from "../src/schema/finding.js";
 import { fixtureSecret, reconFixture } from "./recon-fixture.js";
@@ -53,6 +54,7 @@ async function readOutputs(dir: string): Promise<Record<string, string>> {
     "findings.json",
     "report.md",
     "findings.sarif",
+    "candidates.json",
     "architecture.md",
     "coverage.json",
   ] as const;
@@ -63,7 +65,7 @@ async function readOutputs(dir: string): Promise<Record<string, string>> {
   return files;
 }
 
-it("scan writes four files from FakeProvider and never emits the fixture secret", async () => {
+it("scan writes recon output from FakeProvider and never emits the fixture secret", async () => {
   const secret = fixtureSecret();
   const provider = new FakeProvider(SUMMARY, "fake");
   const dir = await outDir();
@@ -97,7 +99,17 @@ it("scan writes four files from FakeProvider and never emits the fixture secret"
   const coverage = coverageFileSchema.parse(JSON.parse(files["coverage.json"] ?? "") as unknown);
   expect(coverage.target).toBe(reconFixture);
   expect(coverage.units.length).toBeGreaterThan(0);
-  expect(coverage.units.every((unit) => unit.status === "pending")).toBe(true);
+  const authz = coverage.units.filter((unit) => unit.class === "authz_idor");
+  const others = coverage.units.filter((unit) => unit.class !== "authz_idor");
+  expect(authz.length).toBeGreaterThan(0);
+  expect(authz.every((unit) => unit.status === "skipped")).toBe(true);
+  expect(others.every((unit) => unit.status === "pending")).toBe(true);
+  const candidates = candidatesFileSchema.parse(
+    JSON.parse(files["candidates.json"] ?? "") as unknown,
+  );
+  expect(candidates.candidates).toEqual([]);
+  expect(candidates.run.id).toBe(findings.run.id);
+  expect(files["report.md"]).toContain("unvalidated candidates: 0, not reported as findings");
 
   expect(provider.calls).toHaveLength(1);
   const call = provider.calls[0];
@@ -124,6 +136,7 @@ it("scan writes four files from FakeProvider and never emits the fixture secret"
   expect(dumped).not.toContain(secret);
   expect(dumped).not.toContain("FAULTLINE_DUMMY_SECRET");
   expect(captured.stdout()).toContain("findings.sarif");
+  expect(captured.stdout()).toContain("candidates.json");
   expect(captured.stdout()).toContain("architecture.md");
   expect(captured.stdout()).toContain("coverage.json");
   expect(captured.stderr()).toBe("");

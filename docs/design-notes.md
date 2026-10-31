@@ -32,4 +32,12 @@ Deterministic inventory in `src/recon/` respects `.gitignore`, skips dependency 
 
 ## PR3 — model providers
 
-`openai` (OpenAI-compatible Chat Completions, `FAULTLINE_BASE_URL` for other servers) and `anthropic` (Messages API) implement `ModelProvider` with `fetch`. `--model` / `FAULTLINE_MODEL` selects the model id; each provider has a documented default and no quality ranking. The registry is one definition per provider. Adapters return text only (`jsonSchema` is not sent; tool calls are not executed). Timeouts and bounded retries apply to HTTP 429 and 5xx. API keys stay out of errors and logs. Hunters and the disproof validator are still later.
+`openai` (OpenAI-compatible Chat Completions, `FAULTLINE_BASE_URL` for other servers) and `anthropic` (Messages API) implement `ModelProvider` with `fetch`. `--model` / `FAULTLINE_MODEL` selects the model id; each provider has a documented default and no quality ranking. The registry is one definition per provider. Adapters return text only (`jsonSchema` is not sent; tool calls are not executed). Timeouts and bounded retries apply to HTTP 429 and 5xx. API keys stay out of errors and logs. The disproof validator is still later.
+
+## PR4 — authz/IDOR hunter
+
+One hunter per bug class. `src/hunters/types.ts` is `name`, `class`, and `run(ctx) -> Candidate[]`. This PR adds `authz-idor` only. Injection, secrets, and SSRF stay `pending` in the ledger.
+
+Candidates are a strict subset of a finding: class, location, symbol (the cited identifier), root_cause, evidence, suggested severity, confidence with reason, and optional cwe. They are written to `candidates.json` under the same Zod JSON Schema drift check as findings. They are not findings. `findings.json` and SARIF stay empty until a validator exists. `report.md` records only `unvalidated candidates: N, not reported as findings`.
+
+The hunter selects route handlers that take an object id (path, query, or body) and touch a data store, and notes whether auth middleware and an ownership or tenant check are visible. With no provider it emits low-confidence heuristic candidates only for handlers that lack that check. With a provider it makes one fenced model call per selected handler (8 handlers, 4000 source characters, 3 parsed candidates each). Zod drops malformed items. Grounding drops a candidate whose file is not a scanned source file, whose lines fall outside that file, or whose symbol is absent. Fenced source is untrusted data, not instructions. `faultline pr` does not hunt.

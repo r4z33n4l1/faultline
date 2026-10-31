@@ -134,6 +134,7 @@ async function runScan(
       "findings.json",
       "report.md",
       "findings.sarif",
+      "candidates.json",
       "architecture.md",
       "coverage.json",
     ]),
@@ -169,7 +170,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   program
     .command("scan")
     .description(
-      "Inventory a directory and write findings, report, SARIF, architecture, and coverage",
+      "Inventory a directory, hunt authz/IDOR candidates, and write findings, report, SARIF, candidates, architecture, and coverage",
     )
     .argument("<path>", "target directory")
     .option("-o, --out <dir>", "output directory", "./faultline-out")

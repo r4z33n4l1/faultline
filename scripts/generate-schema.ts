@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { renderCandidatesJsonSchema } from "../src/schema/candidate.js";
 import { renderCoverageJsonSchema } from "../src/schema/coverage.js";
 import { renderFindingsJsonSchema } from "../src/schema/finding.js";
 
@@ -10,6 +11,7 @@ const check = process.argv.includes("--check");
 const files = [
   { label: "schema/findings.schema.json", body: renderFindingsJsonSchema() },
   { label: "schema/coverage.schema.json", body: renderCoverageJsonSchema() },
+  { label: "schema/candidates.schema.json", body: renderCandidatesJsonSchema() },
 ];
 
 if (check) {
