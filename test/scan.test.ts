@@ -101,20 +101,27 @@ it("scan writes recon output from FakeProvider and never emits the fixture secre
   expect(coverage.units.length).toBeGreaterThan(0);
   const authz = coverage.units.filter((unit) => unit.class === "authz_idor");
   const injection = coverage.units.filter((unit) => unit.class === "injection");
-  const others = coverage.units.filter(
-    (unit) => unit.class !== "authz_idor" && unit.class !== "injection",
-  );
+  const secrets = coverage.units.filter((unit) => unit.class === "secrets");
+  const ssrf = coverage.units.filter((unit) => unit.class === "ssrf");
   expect(authz.length).toBeGreaterThan(0);
   expect(authz.every((unit) => unit.status === "skipped")).toBe(true);
   expect(injection.length).toBeGreaterThan(0);
   expect(injection.every((unit) => unit.status === "skipped")).toBe(true);
-  expect(others.every((unit) => unit.status === "pending")).toBe(true);
+  expect(secrets.length).toBeGreaterThan(0);
+  expect(secrets.every((unit) => unit.status === "skipped")).toBe(true);
+  expect(ssrf.every((unit) => unit.status === "pending")).toBe(true);
   const candidates = candidatesFileSchema.parse(
     JSON.parse(files["candidates.json"] ?? "") as unknown,
   );
-  expect(candidates.candidates).toEqual([]);
+  expect(candidates.candidates.map((candidate) => candidate.location.file)).toEqual([".env"]);
+  expect(candidates.candidates[0]).toMatchObject({
+    class: "secrets",
+    cwe: "CWE-312",
+    symbol: "env",
+    location: { file: ".env", start_line: 1 },
+  });
   expect(candidates.run.id).toBe(findings.run.id);
-  expect(files["report.md"]).toContain("unvalidated candidates: 0, not reported as findings");
+  expect(files["report.md"]).toContain("unvalidated candidates: 1, not reported as findings");
 
   expect(provider.calls).toHaveLength(1);
   const call = provider.calls[0];

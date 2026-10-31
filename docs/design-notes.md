@@ -49,3 +49,15 @@ Same hunter contract as authz/IDOR. `src/hunters/injection.ts` selects SQL, NoSQ
 Cap, source fencing, zod parsing, and grounding live in `src/hunters/shared.ts` and `src/hunters/ground.ts`. Authz/IDOR behavior is unchanged. One model call per selected sink, including sinks the pre-pass marked mitigated, with the same 8 / 4000 / 3 bounds. Injection coverage rows become `hunted` or `skipped`. Secrets and SSRF stay `pending`. `findings.json` and SARIF stay empty. `faultline pr` does not hunt.
 
 Not in this pass: interprocedural taint, a full JavaScript parser, executing payloads, and the disproof validator.
+
+## PR6 — secrets hunter
+
+Same hunter contract. `src/hunters/secrets.ts` reviews scanned source files and config files for CWE-798, CWE-312, and CWE-532. Class is `secrets`. Recon still records env and config files by name and does not read them. This hunter reads config file contents. It does not read env files. A committed `.env`-style file is a filename-only candidate unless the name marks it as an example, sample, or template.
+
+The pre-pass matches AWS-style access key ids, Google API keys, GitHub tokens, Stripe live keys (`sk_live_` / `rk_live_`), Slack tokens, PEM private-key blocks, JWT signing secrets assigned to literals, high-entropy literals assigned to sensitive names, and secret-like identifiers passed to `console` or a logger. Lockfiles are skipped. Placeholders (`example`, `dummy`, `changeme`, `xxx`, and the same idea) are skipped. Paths under `test/`, `tests/`, or `__tests__/` are skipped unless that directory is the scan root (relative paths then omit the segment).
+
+Raw secret values are not written to `candidates.json`, `report.md`, `findings.json`, `findings.sarif`, logs, or model prompts. The candidate stores a fingerprint: the first 4 characters, the length, and an 8-hex sha256 prefix. The model sees the site with those literals replaced by `<redacted>`. A model candidate that still contains an observed secret is dropped. Known-format heuristic candidates are medium confidence. Other heuristic candidates are low confidence. With a provider, one fenced call per selected site, same 8 / 4000 / 3 bounds, zod, and grounding. Env filename candidates are emitted on both paths and do not spend a model call.
+
+Secrets coverage rows become `hunted` or `skipped`. Route rows are `skipped` because this hunter reviews files. The ledger has no config-file or env-file unit, so those reviews show up as candidates only. SSRF stays `pending`. `findings.json` and SARIF stay empty. `faultline pr` does not hunt.
+
+Not in this pass: interprocedural secret tracking, a full parser, split-string assembly, manifest and shell scanning, live verification against a provider API, and the disproof validator.

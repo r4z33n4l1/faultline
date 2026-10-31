@@ -1,0 +1,5 @@
+{
+  "name": "secrets-app",
+  "private": true,
+  "type": "module"
+}
