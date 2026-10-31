@@ -152,39 +152,115 @@ it("scan without a provider writes an inventory-only architecture", async () => 
 it("refuses a named provider without logging the API key", () => {
   const key = "super-secret-key-not-for-logs";
   const missing = resolveProviderConfig(undefined, { FAULTLINE_PROVIDER: "openai" });
-  expect(providerUnavailableMessage(missing)).toBe('Provider "openai" requires FAULTLINE_API_KEY.');
-  expect(providerUnavailableMessage(missing)).not.toContain(key);
+  const missingMessage = providerUnavailableMessage(missing);
+  expect(missingMessage).toBe('Provider "openai" requires FAULTLINE_API_KEY.');
+  expect(missingMessage).not.toContain(key);
 
-  const flagged = resolveProviderConfig("  anthropic  ", {
+  const flagged = resolveProviderConfig("  unknown-vendor  ", {
     FAULTLINE_PROVIDER: "openai",
     FAULTLINE_API_KEY: key,
   });
-  expect(flagged).toEqual({ name: "anthropic", apiKey: key });
-  expect(providerUnavailableMessage(flagged)).toBe(
-    'No model adapter is configured for provider "anthropic".',
-  );
-  expect(providerUnavailableMessage(flagged)).not.toContain(key);
+  expect(flagged).toEqual({ name: "unknown-vendor", apiKey: key });
+  const flaggedMessage = providerUnavailableMessage(flagged);
+  expect(flaggedMessage).toBe('No model adapter is configured for provider "unknown-vendor".');
+  expect(flaggedMessage).not.toContain(key);
   expect(resolveProviderConfig("  ", { FAULTLINE_PROVIDER: "openai" }).name).toBe("openai");
+
+  const ready = resolveProviderConfig("openai", { FAULTLINE_API_KEY: key });
+  expect(ready).toEqual({ name: "openai", apiKey: key });
+  expect(providerUnavailableMessage(ready)).toBeUndefined();
 });
 
 it("scan exits before writing when the provider name has no adapter", async () => {
   const key = "super-secret-key-not-for-logs";
   const dir = await outDir();
-  const fromFlag = capture({
-    FAULTLINE_PROVIDER: "from-env",
-    FAULTLINE_API_KEY: key,
-  });
-  expect(
-    await runCli(["scan", reconFixture, "--out", dir, "--provider", "anthropic"], fromFlag.io),
-  ).toBe(1);
-  expect(fromFlag.stderr()).toContain('No model adapter is configured for provider "anthropic".');
-  expect(fromFlag.stderr()).not.toContain("from-env");
-  expect(fromFlag.stderr()).not.toContain(key);
-  expect(fromFlag.stdout()).not.toContain(key);
-  await expect(readFile(join(dir, "architecture.md"), "utf8")).rejects.toThrow();
+  const originalFetch = globalThis.fetch;
+  let fetched = false;
+  const failingFetch: typeof fetch = async () => {
+    fetched = true;
+    throw new Error("network disabled");
+  };
+  globalThis.fetch = failingFetch;
+  try {
+    const fromFlag = capture({
+      FAULTLINE_PROVIDER: "from-env",
+      FAULTLINE_API_KEY: key,
+    });
+    expect(
+      await runCli(
+        ["scan", reconFixture, "--out", dir, "--provider", "unknown-vendor"],
+        fromFlag.io,
+      ),
+    ).toBe(1);
+    expect(fromFlag.stderr()).toContain(
+      'No model adapter is configured for provider "unknown-vendor".',
+    );
+    expect(fromFlag.stderr()).not.toContain("from-env");
+    expect(fromFlag.stderr()).not.toContain(key);
+    expect(fromFlag.stdout()).not.toContain(key);
+    await expect(readFile(join(dir, "architecture.md"), "utf8")).rejects.toThrow();
 
-  const fromEnv = capture({ FAULTLINE_PROVIDER: "openai" });
-  expect(await runCli(["scan", reconFixture, "--out", dir], fromEnv.io)).toBe(1);
-  expect(fromEnv.stderr()).toContain('Provider "openai" requires FAULTLINE_API_KEY.');
-  expect(fromEnv.stdout()).toBe("");
+    const fromEnv = capture({ FAULTLINE_PROVIDER: "openai" });
+    expect(await runCli(["scan", reconFixture, "--out", dir], fromEnv.io)).toBe(1);
+    expect(fromEnv.stderr()).toContain('Provider "openai" requires FAULTLINE_API_KEY.');
+    expect(fromEnv.stdout()).toBe("");
+    expect(fetched).toBe(false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+it("scan writes the openai architecture summary and keeps the API key out of output", async () => {
+  const key = "sk-scan-wiring-secret-value";
+  const secret = fixtureSecret();
+  const dir = await outDir();
+  const originalFetch = globalThis.fetch;
+  const calls: { url: string; headers: Headers; body: unknown }[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({
+      url: String(input),
+      headers: new Headers(init?.headers),
+      body: JSON.parse(String(init?.body ?? "{}")) as unknown,
+    });
+    return Response.json({
+      choices: [{ message: { role: "assistant", content: "## Trust boundaries\nThe edge." } }],
+    });
+  };
+  globalThis.fetch = fetchImpl;
+  try {
+    const captured = capture({
+      FAULTLINE_API_KEY: key,
+      FAULTLINE_BASE_URL: "http://127.0.0.1:11434/v1/",
+    });
+    expect(
+      await runCli(
+        ["scan", reconFixture, "--out", dir, "--provider", "openai", "--model", "local-model"],
+        captured.io,
+      ),
+    ).toBe(0);
+    const files = await readOutputs(dir);
+    const architecture = files["architecture.md"] ?? "";
+    expect(architecture).toContain("Model summary from provider `openai`.");
+    expect(architecture).toContain("## Trust boundaries");
+    expect(architecture).toContain("The edge.");
+    const findings = findingsFileSchema.parse(JSON.parse(files["findings.json"] ?? "") as unknown);
+    expect(findings.run.provider).toBe("openai");
+    const dumped = [captured.stdout(), captured.stderr(), ...Object.values(files)].join("\n");
+    expect(dumped).not.toContain(key);
+    expect(dumped).not.toContain(secret);
+    expect(captured.stderr()).toBe("");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe("http://127.0.0.1:11434/v1/chat/completions");
+    expect(calls[0]?.headers.get("authorization")).toBe(`Bearer ${key}`);
+    const body = calls[0]?.body as {
+      model?: string;
+      messages?: { role: string; content: string }[];
+    };
+    expect(body.model).toBe("local-model");
+    expect(body.messages?.[0]?.content).toContain("untrusted repository data");
+    expect(JSON.stringify(body)).not.toContain(key);
+    expect(JSON.stringify(body)).not.toContain(secret);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

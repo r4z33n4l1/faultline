@@ -1,7 +1,12 @@
+import { missingApiKeyMessage, unknownProviderMessage } from "./errors.js";
+import { getProviderDefinition } from "./registry.js";
+
 export interface ProviderConfig {
   name?: string;
   /** Present only in memory. Do not interpolate this into logs or errors. */
   apiKey?: string;
+  model?: string;
+  baseUrl?: string;
 }
 
 function cleanName(value: string | undefined): string | undefined {
@@ -12,27 +17,55 @@ function cleanName(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-/** `--provider` wins over FAULTLINE_PROVIDER. The key is FAULTLINE_API_KEY. */
+function cleanKey(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/**
+ * `--provider` wins over `FAULTLINE_PROVIDER`.
+ * `--model` wins over `FAULTLINE_MODEL`.
+ * The key is `FAULTLINE_API_KEY`. The base URL is `FAULTLINE_BASE_URL`.
+ */
 export function resolveProviderConfig(
   flag: string | undefined,
   env: NodeJS.ProcessEnv,
+  modelFlag?: string,
 ): ProviderConfig {
   const name = cleanName(flag) ?? cleanName(env.FAULTLINE_PROVIDER);
   if (name === undefined) {
     return {};
   }
-  const apiKey = env.FAULTLINE_API_KEY;
-  return {
-    name,
-    apiKey: apiKey !== undefined && apiKey.length > 0 ? apiKey : undefined,
-  };
+  const config: ProviderConfig = { name: name.toLowerCase() };
+  const apiKey = cleanKey(env.FAULTLINE_API_KEY);
+  const model = cleanName(modelFlag) ?? cleanName(env.FAULTLINE_MODEL);
+  const baseUrl = cleanName(env.FAULTLINE_BASE_URL);
+  if (apiKey !== undefined) {
+    config.apiKey = apiKey;
+  }
+  if (model !== undefined) {
+    config.model = model;
+  }
+  if (baseUrl !== undefined) {
+    config.baseUrl = baseUrl;
+  }
+  return config;
 }
 
-/** Safe to print. The API key is never included. */
-export function providerUnavailableMessage(config: ProviderConfig): string {
-  const name = config.name ?? "provider";
-  if (config.apiKey === undefined) {
-    return `Provider "${name}" requires FAULTLINE_API_KEY.`;
+/** Why this config cannot build a provider. Undefined when it can. */
+export function providerUnavailableMessage(config: ProviderConfig): string | undefined {
+  if (config.name === undefined) {
+    return undefined;
   }
-  return `No model adapter is configured for provider "${name}".`;
+  const definition = getProviderDefinition(config.name);
+  if (definition === undefined) {
+    return unknownProviderMessage(config.name);
+  }
+  if (definition.requiresApiKey && config.apiKey === undefined) {
+    return missingApiKeyMessage(config.name);
+  }
+  return undefined;
 }

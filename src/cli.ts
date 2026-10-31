@@ -6,6 +6,7 @@ import { Command, CommanderError } from "commander";
 import { writeRunOutput } from "./output.js";
 import { runPipeline } from "./pipeline.js";
 import { providerUnavailableMessage, resolveProviderConfig } from "./providers/config.js";
+import { createProvider } from "./providers/registry.js";
 import type { ModelProvider } from "./providers/types.js";
 import { executeScan } from "./recon/run.js";
 import { findingsFileSchema, formatZodIssues, type RunMode } from "./schema/finding.js";
@@ -16,7 +17,7 @@ export interface CliIo {
   stderr: (text: string) => void;
   cwd?: string;
   env?: NodeJS.ProcessEnv;
-  /** Test seam. The CLI does not construct a hosted provider. */
+  /** Test seam. When set, the CLI uses this provider instead of constructing one. */
   provider?: ModelProvider;
 }
 
@@ -92,22 +93,37 @@ async function runScan(
   target: string,
   out: string,
   providerFlag: string | undefined,
+  modelFlag: string | undefined,
   io: CliIo,
 ): Promise<number> {
   const cwd = io.cwd ?? process.cwd();
   const env = io.env ?? process.env;
   const outDir = resolve(cwd, out);
-  const config = resolveProviderConfig(providerFlag, env);
-  if (io.provider === undefined && config.name !== undefined) {
-    io.stderr(`${providerUnavailableMessage(config)}\n`);
-    return 1;
+  const config = resolveProviderConfig(providerFlag, env, modelFlag);
+  let provider = io.provider;
+  if (provider === undefined && config.name !== undefined) {
+    const blocked = providerUnavailableMessage(config);
+    if (blocked !== undefined) {
+      io.stderr(`${blocked}\n`);
+      return 1;
+    }
+    try {
+      provider = createProvider(config.name, {
+        apiKey: config.apiKey,
+        model: config.model,
+        baseUrl: config.baseUrl,
+      });
+    } catch (error) {
+      io.stderr(`${messageOf(error)}\n`);
+      return 1;
+    }
   }
   try {
     await executeScan({
       target,
       cwd,
       outDir,
-      provider: io.provider,
+      provider,
     });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
@@ -158,8 +174,9 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .argument("<path>", "target directory")
     .option("-o, --out <dir>", "output directory", "./faultline-out")
     .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
-    .action(async (target: string, opts: { out: string; provider?: string }) => {
-      code = await runScan(target, opts.out, opts.provider, io);
+    .option("--model <id>", "model id (overrides FAULTLINE_MODEL)")
+    .action(async (target: string, opts: { out: string; provider?: string; model?: string }) => {
+      code = await runScan(target, opts.out, opts.provider, opts.model, io);
     });
 
   program

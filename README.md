@@ -31,7 +31,40 @@ pnpm exec faultline pr https://github.com/org/repo/pull/1
 
 Env and config files are recorded by name. Their contents are not read.
 
-`--provider` or `FAULTLINE_PROVIDER` selects a provider name. The API key is read from `FAULTLINE_API_KEY` and is never printed. No hosted adapter is included yet, so a configured name exits with an error instead of inventing a summary. With no provider configured, `architecture.md` is an inventory-only note. A caller can pass a `ModelProvider`; `scan` then makes one summary call and treats repository content as untrusted data.
+With no provider, `architecture.md` is an inventory-only note. `scan` can pass that inventory to a `ModelProvider` and write the model's text into the summary. Repository content is fenced as untrusted data, not instructions. The adapter returns text only. It does not run tools or execute model output. Faultline still checks its own JSON outputs with zod.
+
+## Model providers
+
+`--provider` overrides `FAULTLINE_PROVIDER`. `--model` overrides `FAULTLINE_MODEL`. The API key is `FAULTLINE_API_KEY`. `FAULTLINE_BASE_URL` overrides the provider's base URL. The key is never printed, logged, or written into output files. Do not commit it.
+
+`fake` is a local test double. It does not call the network and returns an empty completion.
+
+`openai` speaks the OpenAI Chat Completions format. The client posts to `{base}/chat/completions`. The default base is `https://api.openai.com/v1`. Point `FAULTLINE_BASE_URL` at OpenRouter, Ollama, vLLM, or another compatible server (for Ollama, `http://127.0.0.1:11434/v1`). Those servers still require `FAULTLINE_API_KEY` to be non-empty; use any placeholder if the server ignores it.
+
+`anthropic` calls the Anthropic Messages API. The client posts to `{base}/v1/messages`. The default base is `https://api.anthropic.com`. The request uses `max_tokens` 4096.
+
+| Provider    | Default model id          |
+| ----------- | ------------------------- |
+| `openai`    | `gpt-4o-mini`             |
+| `anthropic` | `claude-3-5-haiku-latest` |
+
+The default model is only the id sent when you leave `--model` and `FAULTLINE_MODEL` unset. It is not a claim about which model is best. Set a model your account can call.
+
+Calling `openai` or `anthropic` spends money on your own key. Faultline does not ship a key.
+
+```bash
+export FAULTLINE_PROVIDER=openai
+export FAULTLINE_API_KEY=your-key
+pnpm exec faultline scan . --model gpt-4o-mini
+```
+
+```bash
+export FAULTLINE_PROVIDER=anthropic
+export FAULTLINE_API_KEY=your-key
+pnpm exec faultline scan .
+```
+
+Requests time out after 60 seconds. HTTP 429 and 5xx responses are retried up to twice, with backoff. Other HTTP errors are not retried. A name that is not `fake`, `openai`, or `anthropic` exits with an error and does not invent a summary.
 
 `pr` writes `findings.json`, `report.md`, and `findings.sarif`.
 
