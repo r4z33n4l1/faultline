@@ -5,3 +5,10 @@ faultline-out/
 *.tsbuildinfo
 .env
 .env.*
+
+# Dummy recon fixture secrets and skipped directories stay in git.
+!test/fixtures/recon-app/.env
+!test/fixtures/recon-app/node_modules/
+!test/fixtures/recon-app/node_modules/**
+!test/fixtures/recon-app/dist/
+!test/fixtures/recon-app/dist/**

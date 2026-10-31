@@ -1,0 +1,9 @@
+{
+  "name": "recon-fixture",
+  "private": true,
+  "main": "src/server.ts",
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "express": "4.21.2"
+  }
+}
