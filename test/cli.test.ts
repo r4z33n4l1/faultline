@@ -122,24 +122,39 @@ it("scan and pr write a valid empty findings file and report", async () => {
   expect(scanSarif.runs[0].results).toEqual([]);
   expect(scan.stdout()).toContain("findings.sarif");
 
+  const diffPath = join(dir, "empty.diff");
+  await writeFile(diffPath, "");
   const pr = capture();
-  const target = "https://github.com/org/repo/pull/1";
-  expect(await runCli(["pr", target, "--out", prOut], { ...pr.io, cwd: dir })).toBe(0);
+  expect(
+    await runCli(["pr", diffPath, "--repo", dir, "--out", prOut], { ...pr.io, cwd: dir, env: {} }),
+  ).toBe(0);
   const prFindings = findingsFileSchema.parse(
     JSON.parse(await readFile(join(prOut, "findings.json"), "utf8")) as unknown,
   );
   expect(prFindings.findings).toEqual([]);
   expect(prFindings.run.mode).toBe("pr");
-  expect(prFindings.run.target).toBe(target);
+  expect(prFindings.run.target).toBe(diffPath);
   const prSarif = sarifLogSchema.parse(
     JSON.parse(await readFile(join(prOut, "findings.sarif"), "utf8")) as unknown,
   );
   expect(prSarif.runs[0].results).toEqual([]);
   expect(prSarif.runs[0].tool.driver.name).toBe("faultline");
   expect(pr.stdout()).toContain("findings.sarif");
-  await expect(readFile(join(prOut, "architecture.md"), "utf8")).rejects.toThrow();
-  await expect(readFile(join(prOut, "coverage.json"), "utf8")).rejects.toThrow();
-  await expect(readFile(join(prOut, "candidates.json"), "utf8")).rejects.toThrow();
+  expect(pr.stdout()).toContain("candidates.json");
   const prReport = await readFile(join(prOut, "report.md"), "utf8");
-  expect(prReport).not.toContain("unvalidated candidates:");
+  expect(prReport).toContain("This run is PR-scoped.");
+  expect(prReport).toContain("unvalidated candidates: 0, not reported as findings");
+  expect(await readFile(join(prOut, "architecture.md"), "utf8")).toContain("## Changed files");
+  const prCandidates = candidatesFileSchema.parse(
+    JSON.parse(await readFile(join(prOut, "candidates.json"), "utf8")) as unknown,
+  );
+  expect(prCandidates.candidates).toEqual([]);
+
+  const url = "https://github.com/org/repo/pull/1";
+  const refused = capture();
+  expect(
+    await runCli(["pr", url, "--out", join(dir, "refused")], { ...refused.io, cwd: dir }),
+  ).toBe(1);
+  expect(refused.stderr()).toContain(`gh pr diff ${url} | faultline pr -`);
+  await expect(readFile(join(dir, "refused", "findings.json"), "utf8")).rejects.toThrow();
 });

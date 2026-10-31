@@ -2,7 +2,7 @@
 
 Faultline is an open-source security-detector CLI for startup engineering teams. It writes only findings that survived a disproof attempt, as `findings.json`, `report.md`, and `findings.sarif`.
 
-**Status: pre-alpha.** `scan` inventories the target, writes `architecture.md` and `coverage.json`, and runs the authz/IDOR, injection, secrets, and SSRF hunters. Those hunters write `candidates.json` only. Candidates are not validated, so `findings.json` and `findings.sarif` stay empty. `report.md` records the unvalidated candidate count and no candidate details. `pr` still runs an empty pipeline and does not hunt. The findings schema and `validate` command work.
+**Status: pre-alpha.** `scan` inventories the target, writes `architecture.md` and `coverage.json`, and runs the authz/IDOR, injection, secrets, and SSRF hunters. Those hunters write `candidates.json` only. Candidates are not validated, so `findings.json` and `findings.sarif` stay empty. `report.md` records the unvalidated candidate count and no candidate details. `pr` runs the same hunters on a local unified diff and keeps a candidate only when its lines overlap a changed hunk. The findings schema and `validate` command work.
 
 ## Requirements
 
@@ -16,7 +16,8 @@ pnpm install
 pnpm build
 pnpm exec faultline validate path/to/findings.json
 pnpm exec faultline scan .
-pnpm exec faultline pr https://github.com/org/repo/pull/1
+pnpm exec faultline pr path/to/change.diff --repo .
+gh pr diff https://github.com/org/repo/pull/1 | pnpm exec faultline pr -
 ```
 
 `scan` writes these files under `--out` (default `./faultline-out`):
@@ -103,7 +104,15 @@ pnpm exec faultline scan .
 
 Requests time out after 60 seconds. HTTP 429 and 5xx responses are retried up to twice, with backoff. Other HTTP errors are not retried. A name that is not `fake`, `openai`, or `anthropic` exits with an error and does not invent a summary.
 
-`pr` writes `findings.json`, `report.md`, and `findings.sarif`.
+## Pull request scope
+
+`pr` hunts the checked-out tree at `--repo` (default `.`) and keeps work that overlaps a unified diff. Pass a local diff file, or `-` to read the diff from stdin. A GitHub pull request URL is not fetched. Faultline prints a message telling you to pipe `gh pr diff <url>` into `faultline pr -`.
+
+The diff is untrusted input. Faultline does not execute it and does not send it to a shell. A diff larger than 1000000 bytes is rejected. A path that leaves `--repo` (`..`, an absolute path, or a rename to such a path) is rejected. Deleted files, binary files, and renames that do not change a line are skipped. A rename that does change lines is hunted at the new path.
+
+Recon still covers the repository. `architecture.md` and `report.md` say the run is PR-scoped and list the changed files. Every hunter runs, including secrets, but only on changed files, with the same caps and redaction rules as `scan`. A candidate is kept when its line range overlaps a changed hunk. `--context` (default 3, maximum 20) is the number of extra lines around that hunk. Coverage rows outside the diff are `skipped` with reason `outside-diff`.
+
+`pr` writes the same files as `scan`. `findings.json` and `findings.sarif` stay empty until a validator exists.
 
 `validate` prints schema errors with their paths and exits non-zero on failure.
 

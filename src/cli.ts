@@ -1,15 +1,20 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Command, CommanderError } from "commander";
-import { writeRunOutput } from "./output.js";
-import { runPipeline } from "./pipeline.js";
+import {
+  assertDiffWithinLimit,
+  githubPullRequestMessage,
+  parseHunkContext,
+  parseUnifiedDiff,
+} from "./pr/diff.js";
+import { executePr } from "./pr/run.js";
 import { providerUnavailableMessage, resolveProviderConfig } from "./providers/config.js";
 import { createProvider } from "./providers/registry.js";
 import type { ModelProvider } from "./providers/types.js";
 import { executeScan } from "./recon/run.js";
-import { findingsFileSchema, formatZodIssues, type RunMode } from "./schema/finding.js";
+import { findingsFileSchema, formatZodIssues } from "./schema/finding.js";
 import { TOOL_VERSION } from "./version.js";
 
 export interface CliIo {
@@ -19,6 +24,8 @@ export interface CliIo {
   env?: NodeJS.ProcessEnv;
   /** Test seam. When set, the CLI uses this provider instead of constructing one. */
   provider?: ModelProvider;
+  /** Test seam for `pr -`. When omitted, `-` reads process.stdin. */
+  stdin?: string;
 }
 
 const defaultIo: CliIo = {
@@ -75,18 +82,72 @@ function wroteLine(outDir: string, names: readonly string[]): string {
   return `Wrote ${paths.slice(0, -1).join(", ")} and ${last}\n`;
 }
 
-async function runStub(mode: RunMode, target: string, out: string, io: CliIo): Promise<number> {
-  const cwd = io.cwd ?? process.cwd();
-  const outDir = resolve(cwd, out);
-  try {
-    const file = runPipeline({ mode, target });
-    await writeRunOutput(outDir, file, { scanRoot: resolve(cwd) });
-  } catch (error) {
-    io.stderr(`${messageOf(error)}\n`);
-    return 1;
+const RUN_OUTPUTS = [
+  "findings.json",
+  "report.md",
+  "findings.sarif",
+  "candidates.json",
+  "architecture.md",
+  "coverage.json",
+] as const;
+
+async function openProvider(
+  providerFlag: string | undefined,
+  modelFlag: string | undefined,
+  io: CliIo,
+): Promise<ModelProvider | undefined> {
+  if (io.provider !== undefined) {
+    return io.provider;
   }
-  io.stdout(wroteLine(outDir, ["findings.json", "report.md", "findings.sarif"]));
-  return 0;
+  const env = io.env ?? process.env;
+  const config = resolveProviderConfig(providerFlag, env, modelFlag);
+  if (config.name === undefined) {
+    return undefined;
+  }
+  const blocked = providerUnavailableMessage(config);
+  if (blocked !== undefined) {
+    throw new Error(blocked);
+  }
+  return createProvider(config.name, {
+    apiKey: config.apiKey,
+    model: config.model,
+    baseUrl: config.baseUrl,
+  });
+}
+
+async function readDiffText(source: string, io: CliIo): Promise<string> {
+  if (source === "-") {
+    if (io.stdin !== undefined) {
+      assertDiffWithinLimit(Buffer.byteLength(io.stdin, "utf8"));
+      return io.stdin;
+    }
+    return readStdinBounded();
+  }
+  const cwd = io.cwd ?? process.cwd();
+  const abs = resolve(cwd, source);
+  let info: Awaited<ReturnType<typeof stat>>;
+  try {
+    info = await stat(abs);
+  } catch (error) {
+    throw new Error(`Cannot read diff: ${messageOf(error)}`, { cause: error });
+  }
+  if (!info.isFile()) {
+    throw new Error(`Diff path is not a file: ${source}`);
+  }
+  assertDiffWithinLimit(info.size);
+  return readFile(abs, "utf8");
+}
+
+async function readStdinBounded(): Promise<string> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of process.stdin) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    assertDiffWithinLimit(total);
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 async function runScan(
@@ -97,26 +158,13 @@ async function runScan(
   io: CliIo,
 ): Promise<number> {
   const cwd = io.cwd ?? process.cwd();
-  const env = io.env ?? process.env;
   const outDir = resolve(cwd, out);
-  const config = resolveProviderConfig(providerFlag, env, modelFlag);
-  let provider = io.provider;
-  if (provider === undefined && config.name !== undefined) {
-    const blocked = providerUnavailableMessage(config);
-    if (blocked !== undefined) {
-      io.stderr(`${blocked}\n`);
-      return 1;
-    }
-    try {
-      provider = createProvider(config.name, {
-        apiKey: config.apiKey,
-        model: config.model,
-        baseUrl: config.baseUrl,
-      });
-    } catch (error) {
-      io.stderr(`${messageOf(error)}\n`);
-      return 1;
-    }
+  let provider: ModelProvider | undefined;
+  try {
+    provider = await openProvider(providerFlag, modelFlag, io);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
   }
   try {
     await executeScan({
@@ -129,16 +177,80 @@ async function runScan(
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(
-    wroteLine(outDir, [
-      "findings.json",
-      "report.md",
-      "findings.sarif",
-      "candidates.json",
-      "architecture.md",
-      "coverage.json",
-    ]),
-  );
+  io.stdout(wroteLine(outDir, RUN_OUTPUTS));
+  return 0;
+}
+
+async function runPr(
+  source: string,
+  out: string,
+  repo: string,
+  contextFlag: string,
+  providerFlag: string | undefined,
+  modelFlag: string | undefined,
+  io: CliIo,
+): Promise<number> {
+  const github = githubPullRequestMessage(source);
+  if (github !== undefined) {
+    io.stderr(`${github}\n`);
+    return 1;
+  }
+  let context: number;
+  try {
+    context = parseHunkContext(contextFlag);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  const cwd = io.cwd ?? process.cwd();
+  const outDir = resolve(cwd, out);
+  const repoRoot = resolve(cwd, repo);
+  let diffText: string;
+  try {
+    diffText = await readDiffText(source, io);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  let parsed: ReturnType<typeof parseUnifiedDiff>;
+  try {
+    parsed = parseUnifiedDiff(diffText);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  let provider: ModelProvider | undefined;
+  try {
+    provider = await openProvider(providerFlag, modelFlag, io);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  try {
+    const info = await stat(repoRoot);
+    if (!info.isDirectory()) {
+      io.stderr(`Repository path is not a directory: ${repo}\n`);
+      return 1;
+    }
+  } catch (error) {
+    io.stderr(`Cannot read repository: ${messageOf(error)}\n`);
+    return 1;
+  }
+  try {
+    await executePr({
+      diffLabel: source,
+      repo: repoRoot,
+      repoLabel: repo,
+      outDir,
+      parsed,
+      context,
+      provider,
+    });
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  io.stdout(wroteLine(outDir, RUN_OUTPUTS));
   return 0;
 }
 
@@ -182,12 +294,31 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
 
   program
     .command("pr")
-    .description("Run an empty pull-request pipeline and write findings, report, and SARIF")
-    .argument("<url-or-diff>", "pull request URL or diff path")
+    .description(
+      "Hunt changed lines in a unified diff and write findings, report, SARIF, candidates, architecture, and coverage",
+    )
+    .argument("<diff>", "unified diff file, or - to read stdin")
     .option("-o, --out <dir>", "output directory", "./faultline-out")
-    .action(async (target: string, opts: { out: string }) => {
-      code = await runStub("pr", target, opts.out, io);
-    });
+    .option("--repo <path>", "repository root after the change", ".")
+    .option("--context <lines>", "lines of context around each changed hunk", "3")
+    .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
+    .option("--model <id>", "model id (overrides FAULTLINE_MODEL)")
+    .action(
+      async (
+        source: string,
+        opts: { out: string; repo: string; context: string; provider?: string; model?: string },
+      ) => {
+        code = await runPr(
+          source,
+          opts.out,
+          opts.repo,
+          opts.context,
+          opts.provider,
+          opts.model,
+          io,
+        );
+      },
+    );
 
   try {
     await program.parseAsync(argv, { from: "user" });

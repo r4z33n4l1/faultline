@@ -1,3 +1,4 @@
+import { DEFAULT_HUNK_CONTEXT } from "./pr/diff.js";
 import {
   SEVERITIES,
   type Finding,
@@ -86,6 +87,10 @@ function renderFinding(finding: Finding, index: number): string[] {
 export interface ReportOptions {
   /** When set, the report records the count and no candidate details. */
   unvalidatedCandidates?: number;
+  /** Set for a PR-scoped run, including when the diff changes no files. */
+  changedFiles?: readonly string[];
+  /** Lines of context used for hunk overlap. Reported only when `changedFiles` is set. */
+  hunkContext?: number;
 }
 
 export function renderReport(file: FindingsFile, options: ReportOptions = {}): string {
@@ -103,6 +108,24 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
 
   if (file.run.provider !== undefined) {
     lines.push(`Provider: ${file.run.provider}.`);
+  }
+
+  if (options.changedFiles !== undefined) {
+    const context = options.hunkContext ?? DEFAULT_HUNK_CONTEXT;
+    lines.push(
+      "",
+      `This run is PR-scoped. Hunters reviewed changed files only. A candidate is kept when its line range overlaps a changed hunk, with a ${context}-line context window.`,
+      "",
+      "## Changed files",
+      "",
+    );
+    if (options.changedFiles.length === 0) {
+      lines.push("None.");
+    } else {
+      for (const filePath of options.changedFiles) {
+        lines.push(`- \`${filePath}\``);
+      }
+    }
   }
 
   lines.push("", "## Summary", "");

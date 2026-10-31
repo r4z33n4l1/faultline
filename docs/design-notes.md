@@ -73,3 +73,15 @@ A hostname allowlist (`includes` / `has`) or a comparison of `hostname` / `host`
 One fenced model call per selected sink, including mitigated sinks, with the shared 8 / 4000 / 3 bounds, zod, and grounding. SSRF coverage rows become `hunted` or `skipped`. `findings.json` and SARIF stay empty. `faultline pr` does not hunt.
 
 Not in this pass: interprocedural taint, a full JavaScript parser, DNS resolution and rebinding, redirect chains across functions, `axios.create` / `got.extend` instances, client-side open redirects that the server does not follow, and the disproof validator.
+
+## PR8 — pull-request diff scope
+
+`faultline pr <diff>` hunts only what a unified diff touches. The argument is a local diff file or `-` for stdin. `--repo` (default `.`) is the checked-out tree after the change. A GitHub pull request URL is not fetched and does not authenticate; the CLI tells the user to pipe `gh pr diff <url>`.
+
+The parser is in-process. It does not spawn a shell. Diffs over 1000000 bytes are rejected. Paths are normalized like other repo paths: `..`, absolute paths, control characters, and backticks are rejected before any read. Deleted files (`+++ /dev/null` or `deleted file mode`), binary patches, and renames with no hunks are ignored. A rename with hunks uses the new path. A file that still exists and only deletes lines stays in scope; the deletion anchors the next new-file line so the context window can see the edit.
+
+Recon inventories the whole `--repo` tree. `architecture.md` marks the changed files. Hunters receive an inventory limited to those files, so authz/IDOR, injection, secrets, and SSRF all run with their existing caps, fencing, grounding, and secret redaction. After the hunters return, a candidate is kept only when its location overlaps a changed hunk expanded by `--context` (default 3, maximum 20). Coverage rows for files outside the diff, and route rows whose line is outside that window, are `skipped` with reason `outside-diff`. Rows the hunters reviewed inside the diff keep the hunter's reason.
+
+Outputs match `scan`: `findings.json`, `report.md`, `findings.sarif`, `candidates.json`, `architecture.md`, and `coverage.json`. `report.md` says the run is PR-scoped and lists the changed files. Findings stay empty. The validator is still a separate change.
+
+Not in this pass: fetching a pull request, inline review comments, applying the diff onto a tree, interprocedural taint, and promoting candidates to findings.
