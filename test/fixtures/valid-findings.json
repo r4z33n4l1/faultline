@@ -1,0 +1,87 @@
+{
+  "schema_version": "1",
+  "tool": {
+    "name": "faultline",
+    "version": "0.0.0"
+  },
+  "run": {
+    "id": "run_fixture_1",
+    "started_at": "2026-10-31T12:00:00.000Z",
+    "target": ".",
+    "mode": "scan",
+    "provider": "fake"
+  },
+  "findings": [
+    {
+      "id": "fp_sql_concat_user",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "severity": "high",
+      "confidence": {
+        "level": "high",
+        "reason": "Request input is concatenated into a SQL string."
+      },
+      "exploitability": "theoretical",
+      "location": {
+        "file": "src/db.ts",
+        "start_line": 40,
+        "end_line": 44
+      },
+      "root_cause": "SQL query concatenates the user id from the request.",
+      "evidence": [
+        {
+          "file": "src/db.ts",
+          "line": 42,
+          "note": "Template string includes req.query.id."
+        }
+      ],
+      "disproof_attempts": [
+        {
+          "role": "validator",
+          "verdict": "confirmed",
+          "summary": "No parameterization on this path."
+        }
+      ],
+      "validator_verdict": "confirmed",
+      "suggested_fix": {
+        "summary": "Bind the user id as a query parameter.",
+        "patch": "db.query(\"select * from users where id = $1\", [id])"
+      },
+      "references": ["CWE-89", "https://cwe.mitre.org/data/definitions/89.html"]
+    },
+    {
+      "id": "fp_hardcoded_token",
+      "class": "secrets",
+      "severity": "low",
+      "confidence": {
+        "level": "medium",
+        "reason": "A token literal sits in source."
+      },
+      "exploitability": "poc",
+      "location": {
+        "file": "src/config.ts",
+        "start_line": 8
+      },
+      "root_cause": "Hardcoded API token in config.ts.",
+      "evidence": [
+        {
+          "file": "src/config.ts",
+          "line": 8,
+          "note": "Assignment uses a string literal token."
+        }
+      ],
+      "disproof_attempts": [
+        {
+          "role": "validator",
+          "verdict": "confirmed",
+          "summary": "The literal is compiled into the bundle."
+        }
+      ],
+      "validator_verdict": "confirmed",
+      "suggested_fix": {
+        "summary": "Read the token from the environment."
+      },
+      "references": []
+    }
+  ]
+}

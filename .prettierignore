@@ -1,0 +1,7 @@
+dist
+coverage
+node_modules
+pnpm-lock.yaml
+docs/inspiration.md
+docs/design-notes.md
+schema/findings.schema.json
