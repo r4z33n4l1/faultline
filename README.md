@@ -2,7 +2,7 @@
 
 Faultline is an open-source security-detector CLI for startup engineering teams. It writes only findings that survived a disproof attempt, as `findings.json`, `report.md`, and `findings.sarif`.
 
-**Status: pre-alpha.** `scan` inventories the target and writes `architecture.md` plus a pending `coverage.json`. It does not hunt or validate yet, so findings are empty. `pr` still runs an empty pipeline. The findings schema and `validate` command work.
+**Status: pre-alpha.** `scan` inventories the target, writes `architecture.md` and `coverage.json`, and runs the authz/IDOR hunter. That hunter writes `candidates.json` only. Candidates are not validated, so `findings.json` and `findings.sarif` stay empty. `report.md` records the unvalidated candidate count and no candidate details. `pr` still runs an empty pipeline and does not hunt. The findings schema and `validate` command work.
 
 ## Requirements
 
@@ -24,20 +24,29 @@ pnpm exec faultline pr https://github.com/org/repo/pull/1
 - `findings.json`
 - `report.md`
 - `findings.sarif`
+- `candidates.json`
 - `architecture.md`
 - `coverage.json`
 
-`findings.sarif` is SARIF 2.1.0 for the same confirmed findings as `findings.json`. Paths in it are relative to the scanned directory.
+`findings.sarif` is SARIF 2.1.0 for the same confirmed findings as `findings.json`. Paths in it are relative to the scanned directory. `candidates.json` is not a findings file. Nothing in it is confirmed.
+
+## Authz/IDOR hunter
+
+`scan` selects route handlers that take an object identifier (path, query, or body) and touch a data store. It notes whether auth middleware and an ownership or tenant check are visible.
+
+With no provider, a handler that lacks a visible ownership or tenant check becomes a low-confidence candidate. With a provider, Faultline makes one model call per selected handler, at most 8, and fences the handler source as untrusted data. Model output is parsed with zod. Malformed items are discarded. A candidate is dropped when its file is not a scanned source file, its line range falls outside that file, or its cited symbol is not in the file.
+
+Reviewed authz/IDOR coverage rows are `hunted`. Routes that are out of scope, or past the handler cap, are `skipped` with a reason. Injection, secrets, and SSRF rows stay `pending`. A validator is not part of this step.
 
 Env and config files are recorded by name. Their contents are not read.
 
-With no provider, `architecture.md` is an inventory-only note. `scan` can pass that inventory to a `ModelProvider` and write the model's text into the summary. Repository content is fenced as untrusted data, not instructions. The adapter returns text only. It does not run tools or execute model output. Faultline still checks its own JSON outputs with zod.
+With no provider, `architecture.md` is an inventory-only note and authz/IDOR candidates come from the deterministic pre-pass. `scan` can pass inventory and handler source to a `ModelProvider`. Repository content is fenced as untrusted data, not instructions. The adapter returns text only. It does not run tools or execute model output. Faultline still checks its own JSON outputs with zod. Each selected authz/IDOR handler adds one provider call after the architecture summary.
 
 ## Model providers
 
 `--provider` overrides `FAULTLINE_PROVIDER`. `--model` overrides `FAULTLINE_MODEL`. The API key is `FAULTLINE_API_KEY`. `FAULTLINE_BASE_URL` overrides the provider's base URL. The key is never printed, logged, or written into output files. Do not commit it.
 
-`fake` is a local test double. It does not call the network and returns an empty completion.
+`fake` is a local test double. It does not call the network and returns an empty completion. Heuristic authz/IDOR candidates are emitted only when no provider is configured, so `--provider fake` does not add them.
 
 `openai` speaks the OpenAI Chat Completions format. The client posts to `{base}/chat/completions`. The default base is `https://api.openai.com/v1`. Point `FAULTLINE_BASE_URL` at OpenRouter, Ollama, vLLM, or another compatible server (for Ollama, `http://127.0.0.1:11434/v1`). Those servers still require `FAULTLINE_API_KEY` to be non-empty; use any placeholder if the server ignores it.
 

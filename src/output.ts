@@ -48,6 +48,8 @@ export function serializeFindings(file: FindingsFile): string {
 export interface WriteRunOptions {
   /** Directory absolute finding paths are made relative to. Relative paths are left as given. */
   scanRoot?: string;
+  /** Included in report.md as a count only. Omitted for commands that do not hunt. */
+  unvalidatedCandidates?: number;
 }
 
 export async function writeRunOutput(
@@ -61,7 +63,9 @@ export async function writeRunOutput(
   });
   const scanRoot = options.scanRoot ?? process.cwd();
   const findingsText = serializeFindings(file);
-  const reportText = renderReport(file);
+  const reportText = renderReport(file, {
+    unvalidatedCandidates: options.unvalidatedCandidates,
+  });
   const sarifText = serializeSarif(toSarif(file, scanRoot));
   await mkdir(outDir, { recursive: true });
   await writeFile(join(outDir, "findings.json"), findingsText, "utf8");

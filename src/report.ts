@@ -83,7 +83,12 @@ function renderFinding(finding: Finding, index: number): string[] {
   return lines;
 }
 
-export function renderReport(file: FindingsFile): string {
+export interface ReportOptions {
+  /** When set, the report records the count and no candidate details. */
+  unvalidatedCandidates?: number;
+}
+
+export function renderReport(file: FindingsFile, options: ReportOptions = {}): string {
   const counts = new Map<Severity, number>(SEVERITIES.map((severity) => [severity, 0]));
   for (const finding of file.findings) {
     counts.set(finding.severity, (counts.get(finding.severity) ?? 0) + 1);
@@ -104,7 +109,13 @@ export function renderReport(file: FindingsFile): string {
   for (const severity of SEVERITIES) {
     lines.push(`- ${severity}: ${counts.get(severity) ?? 0}`);
   }
-  lines.push("", `${findingCount(file.findings.length)}.`, "", "## Findings", "");
+  lines.push("", `${findingCount(file.findings.length)}.`);
+  if (options.unvalidatedCandidates !== undefined) {
+    lines.push(
+      `unvalidated candidates: ${options.unvalidatedCandidates}, not reported as findings`,
+    );
+  }
+  lines.push("", "## Findings", "");
 
   if (file.findings.length === 0) {
     lines.push("No confirmed findings.", "");

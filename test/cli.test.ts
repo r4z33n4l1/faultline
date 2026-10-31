@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/cli.js";
 import { sarifLogSchema } from "../src/sarif.js";
+import { candidatesFileSchema } from "../src/schema/candidate.js";
 import { findingsFileSchema } from "../src/schema/finding.js";
 import { cloneFixture, loadFixtureText } from "./fixture.js";
 
@@ -108,6 +109,12 @@ it("scan and pr write a valid empty findings file and report", async () => {
   expect(scanReport).toContain("# Faultline report");
   expect(scanReport).toContain("- critical: 0");
   expect(scanReport).toContain("No confirmed findings.");
+  expect(scanReport).toContain("unvalidated candidates: 0, not reported as findings");
+  const scanCandidates = candidatesFileSchema.parse(
+    JSON.parse(await readFile(join(scanOut, "candidates.json"), "utf8")) as unknown,
+  );
+  expect(scanCandidates.candidates).toEqual([]);
+  expect(scanCandidates.run.id).toBe(scanFindings.run.id);
   const scanSarif = sarifLogSchema.parse(
     JSON.parse(await readFile(join(scanOut, "findings.sarif"), "utf8")) as unknown,
   );
@@ -132,4 +139,7 @@ it("scan and pr write a valid empty findings file and report", async () => {
   expect(pr.stdout()).toContain("findings.sarif");
   await expect(readFile(join(prOut, "architecture.md"), "utf8")).rejects.toThrow();
   await expect(readFile(join(prOut, "coverage.json"), "utf8")).rejects.toThrow();
+  await expect(readFile(join(prOut, "candidates.json"), "utf8")).rejects.toThrow();
+  const prReport = await readFile(join(prOut, "report.md"), "utf8");
+  expect(prReport).not.toContain("unvalidated candidates:");
 });
