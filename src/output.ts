@@ -8,6 +8,7 @@ import {
   type FindingsFile,
 } from "./schema/finding.js";
 import { renderReport } from "./report.js";
+import { serializeSarif, toSarif } from "./sarif.js";
 
 export interface FindingsDraft {
   schema_version: FindingsFile["schema_version"];
@@ -44,13 +45,27 @@ export function serializeFindings(file: FindingsFile): string {
   return `${JSON.stringify(file, null, 2)}\n`;
 }
 
-export async function writeRunOutput(outDir: string, draft: FindingsDraft): Promise<FindingsFile> {
+export interface WriteRunOptions {
+  /** Directory absolute finding paths are made relative to. Relative paths are left as given. */
+  scanRoot?: string;
+}
+
+export async function writeRunOutput(
+  outDir: string,
+  draft: FindingsDraft,
+  options: WriteRunOptions = {},
+): Promise<FindingsFile> {
   const file = findingsFileSchema.parse({
     ...draft,
     findings: gateFindings(draft.findings),
   });
+  const scanRoot = options.scanRoot ?? process.cwd();
+  const findingsText = serializeFindings(file);
+  const reportText = renderReport(file);
+  const sarifText = serializeSarif(toSarif(file, scanRoot));
   await mkdir(outDir, { recursive: true });
-  await writeFile(join(outDir, "findings.json"), serializeFindings(file), "utf8");
-  await writeFile(join(outDir, "report.md"), renderReport(file), "utf8");
+  await writeFile(join(outDir, "findings.json"), findingsText, "utf8");
+  await writeFile(join(outDir, "report.md"), reportText, "utf8");
+  await writeFile(join(outDir, "findings.sarif"), sarifText, "utf8");
   return file;
 }

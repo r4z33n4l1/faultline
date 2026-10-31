@@ -5,6 +5,7 @@ import { expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/cli.js";
 import { providerUnavailableMessage, resolveProviderConfig } from "../src/providers/config.js";
 import { FakeProvider } from "../src/providers/types.js";
+import { sarifLogSchema } from "../src/sarif.js";
 import { coverageFileSchema } from "../src/schema/coverage.js";
 import { findingsFileSchema } from "../src/schema/finding.js";
 import { fixtureSecret, reconFixture } from "./recon-fixture.js";
@@ -48,7 +49,13 @@ async function outDir(): Promise<string> {
 }
 
 async function readOutputs(dir: string): Promise<Record<string, string>> {
-  const names = ["findings.json", "report.md", "architecture.md", "coverage.json"] as const;
+  const names = [
+    "findings.json",
+    "report.md",
+    "findings.sarif",
+    "architecture.md",
+    "coverage.json",
+  ] as const;
   const files: Record<string, string> = {};
   for (const name of names) {
     files[name] = await readFile(join(dir, name), "utf8");
@@ -71,6 +78,9 @@ it("scan writes four files from FakeProvider and never emits the fixture secret"
   expect(findings.run.provider).toBe("fake");
   expect(findings.run.target).toBe(reconFixture);
   expect(files["report.md"]).toContain("No confirmed findings.");
+  const sarif = sarifLogSchema.parse(JSON.parse(files["findings.sarif"] ?? "") as unknown);
+  expect(sarif.runs[0].results).toEqual([]);
+  expect(sarif.runs[0].tool.driver.name).toBe("faultline");
 
   const architecture = files["architecture.md"] ?? "";
   expect(architecture).toContain("Model summary from provider `fake`.");
@@ -113,6 +123,7 @@ it("scan writes four files from FakeProvider and never emits the fixture secret"
   ].join("\n");
   expect(dumped).not.toContain(secret);
   expect(dumped).not.toContain("FAULTLINE_DUMMY_SECRET");
+  expect(captured.stdout()).toContain("findings.sarif");
   expect(captured.stdout()).toContain("architecture.md");
   expect(captured.stdout()).toContain("coverage.json");
   expect(captured.stderr()).toBe("");

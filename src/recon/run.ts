@@ -28,7 +28,7 @@ export async function executeScan(request: ScanRequest): Promise<void> {
     startedAt: request.startedAt,
     runId: request.runId,
   });
-  await writeRunOutput(request.outDir, findings);
+  await writeRunOutput(request.outDir, findings, { scanRoot: abs });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");
   await writeFile(join(request.outDir, "coverage.json"), serializeCoverage(coverage), "utf8");
 }

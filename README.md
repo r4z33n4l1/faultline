@@ -1,6 +1,6 @@
 # Faultline
 
-Faultline is an open-source security-detector CLI for startup engineering teams. It writes only findings that survived a disproof attempt, as `findings.json` and `report.md`.
+Faultline is an open-source security-detector CLI for startup engineering teams. It writes only findings that survived a disproof attempt, as `findings.json`, `report.md`, and `findings.sarif`.
 
 **Status: pre-alpha.** `scan` inventories the target and writes `architecture.md` plus a pending `coverage.json`. It does not hunt or validate yet, so findings are empty. `pr` still runs an empty pipeline. The findings schema and `validate` command work.
 
@@ -23,14 +23,17 @@ pnpm exec faultline pr https://github.com/org/repo/pull/1
 
 - `findings.json`
 - `report.md`
+- `findings.sarif`
 - `architecture.md`
 - `coverage.json`
+
+`findings.sarif` is SARIF 2.1.0 for the same confirmed findings as `findings.json`. Paths in it are relative to the scanned directory.
 
 Env and config files are recorded by name. Their contents are not read.
 
 `--provider` or `FAULTLINE_PROVIDER` selects a provider name. The API key is read from `FAULTLINE_API_KEY` and is never printed. No hosted adapter is included yet, so a configured name exits with an error instead of inventing a summary. With no provider configured, `architecture.md` is an inventory-only note. A caller can pass a `ModelProvider`; `scan` then makes one summary call and treats repository content as untrusted data.
 
-`pr` writes `findings.json` and `report.md` only.
+`pr` writes `findings.json`, `report.md`, and `findings.sarif`.
 
 `validate` prints schema errors with their paths and exits non-zero on failure.
 
