@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "authz_idor",
+              "injection",
+              "secrets",
+              "ssrf"
+            ]
+          },
+          "cwe": {
+            "type": "string",
+            "pattern": "^CWE-\\d+$"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "end_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "vulnerable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "class",
+          "cwe",
+          "file",
+          "start_line",
+          "end_line",
+          "vulnerable"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "entries"
+  ],
+  "additionalProperties": false
+}

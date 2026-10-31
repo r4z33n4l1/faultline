@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { renderCandidatesJsonSchema } from "../src/schema/candidate.js";
 import { renderCoverageJsonSchema } from "../src/schema/coverage.js";
 import { renderFindingsJsonSchema } from "../src/schema/finding.js";
+import { renderTruthJsonSchema } from "../src/schema/truth.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const check = process.argv.includes("--check");
@@ -12,6 +13,7 @@ const files = [
   { label: "schema/findings.schema.json", body: renderFindingsJsonSchema() },
   { label: "schema/coverage.schema.json", body: renderCoverageJsonSchema() },
   { label: "schema/candidates.schema.json", body: renderCandidatesJsonSchema() },
+  { label: "schema/truth.schema.json", body: renderTruthJsonSchema() },
 ];
 
 if (check) {
