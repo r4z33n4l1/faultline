@@ -100,9 +100,14 @@ it("scan writes recon output from FakeProvider and never emits the fixture secre
   expect(coverage.target).toBe(reconFixture);
   expect(coverage.units.length).toBeGreaterThan(0);
   const authz = coverage.units.filter((unit) => unit.class === "authz_idor");
-  const others = coverage.units.filter((unit) => unit.class !== "authz_idor");
+  const injection = coverage.units.filter((unit) => unit.class === "injection");
+  const others = coverage.units.filter(
+    (unit) => unit.class !== "authz_idor" && unit.class !== "injection",
+  );
   expect(authz.length).toBeGreaterThan(0);
   expect(authz.every((unit) => unit.status === "skipped")).toBe(true);
+  expect(injection.length).toBeGreaterThan(0);
+  expect(injection.every((unit) => unit.status === "skipped")).toBe(true);
   expect(others.every((unit) => unit.status === "pending")).toBe(true);
   const candidates = candidatesFileSchema.parse(
     JSON.parse(files["candidates.json"] ?? "") as unknown,

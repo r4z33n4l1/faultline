@@ -16,7 +16,7 @@ export interface HunterContext {
   ): void;
 }
 
-/** One bug class. Later classes add a file and a registry entry. */
+/** One bug class. Register another class by adding a hunter module. */
 export interface Hunter {
   readonly name: string;
   readonly class: CoverageClass;
