@@ -637,7 +637,11 @@ describe("scan output", () => {
     expect(provider.calls).toHaveLength(4);
 
     const authz = coverage.units.filter((unit) => unit.class === "authz_idor");
-    const others = coverage.units.filter((unit) => unit.class !== "authz_idor");
+    const injection = coverage.units.filter((unit) => unit.class === "injection");
+    const others = coverage.units.filter(
+      (unit) => unit.class !== "authz_idor" && unit.class !== "injection",
+    );
+    expect(injection.every((unit) => unit.status === "skipped")).toBe(true);
     expect(others.every((unit) => unit.status === "pending")).toBe(true);
     expect(authz.every((unit) => unit.status === "hunted" || unit.status === "skipped")).toBe(true);
     expect(authz.some((unit) => unit.status === "hunted")).toBe(true);

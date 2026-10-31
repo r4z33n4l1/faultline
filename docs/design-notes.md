@@ -41,3 +41,11 @@ One hunter per bug class. `src/hunters/types.ts` is `name`, `class`, and `run(ct
 Candidates are a strict subset of a finding: class, location, symbol (the cited identifier), root_cause, evidence, suggested severity, confidence with reason, and optional cwe. They are written to `candidates.json` under the same Zod JSON Schema drift check as findings. They are not findings. `findings.json` and SARIF stay empty until a validator exists. `report.md` records only `unvalidated candidates: N, not reported as findings`.
 
 The hunter selects route handlers that take an object id (path, query, or body) and touch a data store, and notes whether auth middleware and an ownership or tenant check are visible. With no provider it emits low-confidence heuristic candidates only for handlers that lack that check. With a provider it makes one fenced model call per selected handler (8 handlers, 4000 source characters, 3 parsed candidates each). Zod drops malformed items. Grounding drops a candidate whose file is not a scanned source file, whose lines fall outside that file, or whose symbol is absent. Fenced source is untrusted data, not instructions. `faultline pr` does not hunt.
+
+## PR5 — injection hunter
+
+Same hunter contract as authz/IDOR. `src/hunters/injection.ts` selects SQL, NoSQL, command, code, and template sinks when request input (`req` / `request` `.params`, `.query`, `.body`, `.headers`, or a recon route handler that reads them) reaches the sink in the same function. Visible parameterization and allowlisting are mitigations. Heuristic candidates are low-confidence and only for unmitigated tainted sinks. CWE is per sink: CWE-89, CWE-943, CWE-78, CWE-94, or CWE-1336. Class is `injection`.
+
+Cap, source fencing, zod parsing, and grounding live in `src/hunters/shared.ts` and `src/hunters/ground.ts`. Authz/IDOR behavior is unchanged. One model call per selected sink, including sinks the pre-pass marked mitigated, with the same 8 / 4000 / 3 bounds. Injection coverage rows become `hunted` or `skipped`. Secrets and SSRF stay `pending`. `findings.json` and SARIF stay empty. `faultline pr` does not hunt.
+
+Not in this pass: interprocedural taint, a full JavaScript parser, executing payloads, and the disproof validator.

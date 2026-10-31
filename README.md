@@ -2,7 +2,7 @@
 
 Faultline is an open-source security-detector CLI for startup engineering teams. It writes only findings that survived a disproof attempt, as `findings.json`, `report.md`, and `findings.sarif`.
 
-**Status: pre-alpha.** `scan` inventories the target, writes `architecture.md` and `coverage.json`, and runs the authz/IDOR hunter. That hunter writes `candidates.json` only. Candidates are not validated, so `findings.json` and `findings.sarif` stay empty. `report.md` records the unvalidated candidate count and no candidate details. `pr` still runs an empty pipeline and does not hunt. The findings schema and `validate` command work.
+**Status: pre-alpha.** `scan` inventories the target, writes `architecture.md` and `coverage.json`, and runs the authz/IDOR and injection hunters. Those hunters write `candidates.json` only. Candidates are not validated, so `findings.json` and `findings.sarif` stay empty. `report.md` records the unvalidated candidate count and no candidate details. `pr` still runs an empty pipeline and does not hunt. The findings schema and `validate` command work.
 
 ## Requirements
 
@@ -36,17 +36,25 @@ pnpm exec faultline pr https://github.com/org/repo/pull/1
 
 With no provider, a handler that lacks a visible ownership or tenant check becomes a low-confidence candidate. With a provider, Faultline makes one model call per selected handler, at most 8, and fences the handler source as untrusted data. Model output is parsed with zod. Malformed items are discarded. A candidate is dropped when its file is not a scanned source file, its line range falls outside that file, or its cited symbol is not in the file.
 
-Reviewed authz/IDOR coverage rows are `hunted`. Routes that are out of scope, or past the handler cap, are `skipped` with a reason. Injection, secrets, and SSRF rows stay `pending`. A validator is not part of this step.
+Reviewed authz/IDOR coverage rows are `hunted`. Routes that are out of scope, or past the handler cap, are `skipped` with a reason. Secrets and SSRF rows stay `pending`. A validator is not part of this step.
 
 Env and config files are recorded by name. Their contents are not read.
 
-With no provider, `architecture.md` is an inventory-only note and authz/IDOR candidates come from the deterministic pre-pass. `scan` can pass inventory and handler source to a `ModelProvider`. Repository content is fenced as untrusted data, not instructions. The adapter returns text only. It does not run tools or execute model output. Faultline still checks its own JSON outputs with zod. Each selected authz/IDOR handler adds one provider call after the architecture summary.
+With no provider, `architecture.md` is an inventory-only note and hunter candidates come from the deterministic pre-pass. `scan` can pass inventory and handler source to a `ModelProvider`. Repository content is fenced as untrusted data, not instructions. The adapter returns text only. It does not run tools or execute model output. Faultline still checks its own JSON outputs with zod. Each selected authz/IDOR handler, and each selected injection sink, adds one provider call after the architecture summary.
+
+## Injection hunter
+
+`scan` selects sinks in the same handler or function when request input reaches them. The pre-pass looks for SQL built with template strings or concatenation (`query`, `execute`, `raw`, `knex.raw`, `sequelize.query`, `prisma.$queryRawUnsafe`, `prisma.$executeRawUnsafe`), NoSQL `$where` and operator objects built from request input, `child_process` `exec` / `execSync` / `spawn` with `shell: true`, and `eval`, `new Function`, `vm`, or a template render whose source is request input. It notes parameterization and allowlisting.
+
+With no provider, only an unmitigated tainted sink becomes a low-confidence candidate. `execFile`, `spawn` without a shell, bound SQL parameters, and the safe `prisma.$queryRaw` tag are not candidates. With a provider, Faultline makes one model call per selected sink, at most 8, and fences the handler source as untrusted data. Parsing, grounding, and the candidate cap are the same helpers the authz/IDOR hunter uses.
+
+Reviewed injection coverage rows are `hunted`. Handlers with no selected sink, a parameterized query, or a sink past the cap are `skipped` with a reason. Secrets and SSRF rows stay `pending`. Candidates still are not findings.
 
 ## Model providers
 
 `--provider` overrides `FAULTLINE_PROVIDER`. `--model` overrides `FAULTLINE_MODEL`. The API key is `FAULTLINE_API_KEY`. `FAULTLINE_BASE_URL` overrides the provider's base URL. The key is never printed, logged, or written into output files. Do not commit it.
 
-`fake` is a local test double. It does not call the network and returns an empty completion. Heuristic authz/IDOR candidates are emitted only when no provider is configured, so `--provider fake` does not add them.
+`fake` is a local test double. It does not call the network and returns an empty completion. Heuristic authz/IDOR and injection candidates are emitted only when no provider is configured, so `--provider fake` does not add them.
 
 `openai` speaks the OpenAI Chat Completions format. The client posts to `{base}/chat/completions`. The default base is `https://api.openai.com/v1`. Point `FAULTLINE_BASE_URL` at OpenRouter, Ollama, vLLM, or another compatible server (for Ollama, `http://127.0.0.1:11434/v1`). Those servers still require `FAULTLINE_API_KEY` to be non-empty; use any placeholder if the server ignores it.
 
