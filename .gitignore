@@ -12,3 +12,7 @@ faultline-out/
 !test/fixtures/recon-app/node_modules/**
 !test/fixtures/recon-app/dist/
 !test/fixtures/recon-app/dist/**
+
+# Secrets-hunter fixtures are names and fake values, not live credentials.
+!test/fixtures/secrets-app/.env
+!test/fixtures/secrets-app/.env.*

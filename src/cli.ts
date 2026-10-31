@@ -170,7 +170,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   program
     .command("scan")
     .description(
-      "Inventory a directory, hunt authz/IDOR and injection candidates, and write findings, report, SARIF, candidates, architecture, and coverage",
+      "Inventory a directory, hunt authz/IDOR, injection, and secrets candidates, and write findings, report, SARIF, candidates, architecture, and coverage",
     )
     .argument("<path>", "target directory")
     .option("-o, --out <dir>", "output directory", "./faultline-out")
