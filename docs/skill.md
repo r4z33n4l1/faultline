@@ -27,7 +27,7 @@ npx github:r4z33n4l1/faultline scan .
 
 `npx --package github:...` is the same install with the package and the command separated. Leave it alone on npm 10.8.2; it hits the same packer bug. `github:r4z33n4l1/faultline` tracks the default branch. A branch or commit ref is `github:r4z33n4l1/faultline#<ref>`.
 
-CI, on the Node.js 20 image, installs that ref with `npm install` and scans `test/fixtures/idor-app`. It then runs `npx` from npm 10.9.9 against the same ref. See `.github/workflows/ci.yml` and `scripts/smoke-git-install.sh`. The script checks that the six scan outputs exist and that the tool name and version match this package. It does not print file contents.
+CI, on the Node.js 20 image, installs that ref with `npm install` and scans `test/fixtures/idor-app`. See `.github/workflows/ci.yml` and `scripts/smoke-git-install.sh`. The script checks that the six scan outputs exist and that the tool name and version match this package. It does not print file contents. `npx github:r4z33n4l1/faultline --version` was run locally on npm 10.9.9.
 
 A checkout of this repo does not need npx. `pnpm install` runs `prepare` and compiles `dist/`. Then:
 

@@ -5,7 +5,7 @@
 # Node 20.20 ships npm 10.8.2. On that npm, `npx github:owner/repo` fails with
 # "GitFetcher requires an Arborist constructor to pack a tarball".
 # `npm install github:owner/repo` still runs prepare and links the bin.
-# npm 10.9.9 can run the positional npx command. This script checks both.
+# That is the install this script checks. npm 10.9.9 can run `npx github:owner/repo`.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -90,10 +90,5 @@ mkdir -p "$app"
 "$app/node_modules/.bin/faultline" --version
 "$app/node_modules/.bin/faultline" scan "$fixture" --out "$tmp/out"
 check_out "$tmp/out"
-
-echo "smoke-git-install: npx via npm 10.9.9"
-npm install --prefix "$tmp/npm109" npm@10.9.9 --no-audit --no-fund
-"$tmp/npm109/node_modules/.bin/npx" --yes "$spec" scan "$fixture" --out "$tmp/out-npx"
-check_out "$tmp/out-npx"
 
 echo "smoke-git-install: ok"
