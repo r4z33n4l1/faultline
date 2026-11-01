@@ -102,12 +102,13 @@ function anthropicResponse(content: unknown): Response {
   return Response.json({ content });
 }
 
-it("registers fake, openai, and anthropic", async () => {
-  expect(listProviderNames()).toEqual(["fake", "openai", "anthropic"]);
+it("registers fake, openai, anthropic, and codex", async () => {
+  expect(listProviderNames()).toEqual(["fake", "openai", "anthropic", "codex"]);
   const fake = createProvider("fake");
   expect(fake.name).toBe("fake");
   await expect(fake.complete(input)).resolves.toBe("");
   expect(createProvider(" OpenAI ", { apiKey: "sk-test" }).name).toBe("openai");
+  expect(createProvider(" Codex ").name).toBe("codex");
 });
 
 it("throws a typed error when the API key is missing", () => {

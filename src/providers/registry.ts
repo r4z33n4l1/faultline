@@ -1,4 +1,5 @@
 import { anthropicProviderDefinition } from "./anthropic.js";
+import { CodexProvider } from "./codex.js";
 import type { ProviderCreateOptions, ProviderDefinition } from "./definition.js";
 import { UnknownProviderError } from "./errors.js";
 import { openaiProviderDefinition } from "./openai.js";
@@ -12,11 +13,20 @@ const fakeProviderDefinition: ProviderDefinition = {
   },
 };
 
+const codexProviderDefinition: ProviderDefinition = {
+  name: "codex",
+  requiresApiKey: false,
+  create(options) {
+    return new CodexProvider(options);
+  },
+};
+
 /** Add a provider by appending one definition. */
 const definitions: readonly ProviderDefinition[] = [
   fakeProviderDefinition,
   openaiProviderDefinition,
   anthropicProviderDefinition,
+  codexProviderDefinition,
 ];
 
 const byName = new Map<string, ProviderDefinition>(

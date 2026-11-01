@@ -1,5 +1,12 @@
 export type ProviderErrorCode =
-  "missing_api_key" | "unknown_provider" | "timeout" | "aborted" | "http" | "network" | "response";
+  | "missing_api_key"
+  | "unknown_provider"
+  | "timeout"
+  | "aborted"
+  | "http"
+  | "network"
+  | "response"
+  | "cli";
 
 export function missingApiKeyMessage(name: string): string {
   return `Provider "${name}" requires FAULTLINE_API_KEY.`;
@@ -92,6 +99,13 @@ export class ProviderResponseError extends ProviderError {
   }
 }
 
+/** A local model CLI is missing or not signed in. The message is the whole error. */
+export class ProviderCliError extends ProviderError {
+  constructor(providerName: string, detail: string) {
+    super(detail, { code: "cli", providerName });
+  }
+}
+
 /** The value actually sent. Empty and whitespace-only keys are missing. */
 export function requireApiKey(providerName: string, apiKey: string | undefined): string {
   const trimmed = apiKey?.trim() ?? "";
@@ -119,5 +133,28 @@ export function redactSensitive(text: string, secret: string | undefined): strin
   }
   out = out.replace(/Bearer\s+\S+/gi, `Bearer ${REDACTED}`);
   out = out.replace(/((?:x-api-key|authorization)\s*[:=]\s*)\S+/gi, `$1${REDACTED}`);
+  return out;
+}
+
+/**
+ * Redact credential-shaped text from errors. Used when a subprocess might
+ * echo a token that Faultline never intended to read.
+ */
+export function redactTokenLike(text: string): string {
+  const patterns = [
+    /Bearer\s+\S+/gi,
+    /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+    /\bsk-(?:ant-)?[A-Za-z0-9_-]{8,}\b/g,
+    /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{16,}\b/g,
+    /\bgithub_pat_[A-Za-z0-9_]{16,}\b/g,
+    /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
+    /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{8,}\b/g,
+    /\bAKIA[0-9A-Z]{16}\b/g,
+    /\b[A-Z0-9_]*(?:API_KEY|ACCESS_TOKEN|REFRESH_TOKEN|ID_TOKEN|SECRET|PASSWORD|CREDENTIAL)\s*=\s*\S+/gi,
+  ];
+  let out = text;
+  for (const pattern of patterns) {
+    out = out.replace(pattern, REDACTED);
+  }
   return out;
 }

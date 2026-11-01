@@ -103,6 +103,31 @@ cp -R skills/faultline ~/.cursor/skills/faultline
 
 In Agent chat, `/faultline` attaches the skill to one message when it is installed. A scan still runs only when the request asks for one. The skill's own rules say not to scan as a side effect.
 
+## `--provider codex`
+
+`codex` is a Faultline model provider. It runs model calls through the locally installed OpenAI Codex CLI (`codex exec`) so someone signed in with a ChatGPT plan can scan without `FAULTLINE_API_KEY`.
+
+```bash
+codex login status
+pnpm exec faultline scan . --provider codex
+pnpm exec faultline scan . --provider codex --model <model-id>
+```
+
+`FAULTLINE_PROVIDER=codex` matches `--provider codex`. `FAULTLINE_CODEX_BIN` is the executable (default `codex` on `PATH`). `--model` and `FAULTLINE_MODEL` are passed as `codex exec -m`. Omit both to use the model already configured in the Codex CLI.
+
+Faultline invokes the CLI non-interactively:
+
+- `spawn` with an argument array and `shell: false`. The prompt is stdin (`-`), never a shell string, so candidate text cannot change the command.
+- `--sandbox read-only`, `-c approval_policy="never"`, `--ignore-user-config`, and `--ignore-rules`.
+- `-c sandbox_workspace_write.network_access=false` and `-c web_search="disabled"`. Current `codex exec` has no `--no-network` flag. Those settings are what keep the inner agent's commands off the network and off web search. The Codex process itself still contacts the ChatGPT service.
+- `--ephemeral` and `--skip-git-repo-check`. `--cd` is a fresh empty temp directory, not the scanned repo.
+- `--output-last-message` is the final message. If that file is empty and stdout is JSONL, Faultline keeps the last `agent_message` only.
+- Timeout 120 seconds, output cap 1000000 bytes, at most 2 Codex processes at once. Failures are not retried.
+- `codex login status` must exit 0 before `exec`. Faultline does not read or copy `~/.codex/auth.json`. API keys and proxy URLs that contain userinfo are not copied into the child environment. Token-like strings are redacted from errors.
+- The prompt requires pure text JSON when the request asks for JSON (no markdown fence). Hunters and the disproof validator parse that text with the existing zod schemas. `--output-schema` is not used.
+
+Do not pass `--provider codex` unless the user asked for a model run. The fenced source is sent to Codex. A missing `codex` binary or a failed `codex login status` exits with an error and does not invent a summary.
+
 ## After it is installed
 
 Ask the agent to scan the repo or a pull request diff. The skill's run commands write `./faultline-out`. That directory is gitignored in this repository. In another repository, do not commit it.
