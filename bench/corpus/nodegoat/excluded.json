@@ -1,0 +1,59 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "nodegoat-xss",
+      "class": "xss",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a3.html",
+      "note": "Stored XSS in the profile flow, and swig autoescape disabled in server.js. Not one of the four classes. Not counted."
+    },
+    {
+      "id": "nodegoat-csrf",
+      "class": "csrf",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a8.html",
+      "note": "CSRF protection is commented out in server.js. Not counted."
+    },
+    {
+      "id": "nodegoat-redos",
+      "class": "redos",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/redos.html",
+      "note": "ReDoS in the bank-routing regular expression in app/routes/profile.js. Not counted."
+    },
+    {
+      "id": "nodegoat-misconfig",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a5.html",
+      "note": "Helmet and related header hardening are commented out. Not counted."
+    },
+    {
+      "id": "nodegoat-vulnerable-component",
+      "class": "vulnerable_component",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a9.html",
+      "note": "Known-vulnerable Marked dependency. A dependency CVE is not one of the four classes. Not counted."
+    },
+    {
+      "id": "nodegoat-open-redirect",
+      "class": "open_redirect",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/routes/index.js",
+      "note": "GET /learn redirects to req.query.url. That is an open redirect, not an outbound server fetch. Not counted as SSRF."
+    },
+    {
+      "id": "nodegoat-log-injection",
+      "class": "log_injection",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a1.html",
+      "note": "Tutorial A1 also describes log injection in routes/session.js. That is CWE-117, not SQL, NoSQL, command, or code injection. Not counted."
+    },
+    {
+      "id": "nodegoat-weak-password",
+      "class": "broken_authentication",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a2.html",
+      "note": "Password-policy and session-fixation notes in tutorial A2. Not authorization or IDOR. Not counted."
+    },
+    {
+      "id": "nodegoat-command-injection-tutorial",
+      "class": "command_injection",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a1.html",
+      "note": "Tutorial A1 discusses child_process in general. No exec or spawn sink is present in the application source at this commit, so there is no command-injection label."
+    }
+  ]
+}

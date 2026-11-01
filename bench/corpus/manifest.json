@@ -1,0 +1,31 @@
+{
+  "schema_version": "1",
+  "cache_dir": "bench/.cache",
+  "semgrep": {
+    "version": "1.183.0",
+    "rulesets": ["p/javascript", "p/typescript", "p/nodejsscan", "p/secrets"]
+  },
+  "apps": [
+    {
+      "name": "nodegoat",
+      "upstream": "https://github.com/OWASP/NodeGoat",
+      "commit": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "license": "Apache-2.0",
+      "license_path": "LICENSE"
+    },
+    {
+      "name": "dvna",
+      "upstream": "https://github.com/appsecco/dvna",
+      "commit": "9ba473add536f66ac9007966acb2a775dd31277a",
+      "license": "MIT",
+      "license_path": "LICENSE"
+    },
+    {
+      "name": "juice-shop",
+      "upstream": "https://github.com/juice-shop/juice-shop",
+      "commit": "f189f521266f42c6bd05884468292000cee852ed",
+      "license": "MIT",
+      "license_path": "LICENSE"
+    }
+  ]
+}

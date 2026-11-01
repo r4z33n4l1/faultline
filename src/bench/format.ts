@@ -48,6 +48,7 @@ export function renderBenchMarkdown(result: BenchResult): string {
     result.disclaimer,
     "",
     `- stage: ${result.stage}`,
+    `- tool: ${result.tool.name} ${result.tool.version}`,
     `- target: ${result.target}`,
     `- truth: ${result.truth}`,
     `- provider: ${providerLabel(result.run.provider)}`,

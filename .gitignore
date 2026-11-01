@@ -3,6 +3,9 @@ dist/
 coverage/
 faultline-out/
 faultline-bench/
+
+# Public corpus checkouts. Fetched at bench time. Not vendored.
+bench/.cache/
 *.tsbuildinfo
 .env
 .env.*

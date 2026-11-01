@@ -1,0 +1,65 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "nodegoat-allocations-idor",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a4.html",
+      "note": "Tutorial A4 says routes/allocations.js takes the user id from the URL. Verified at app/routes/allocations.js lines 16-23. The session-id alternative in that file is commented out."
+    },
+    {
+      "id": "nodegoat-benefits-missing-authz",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a7.html",
+      "note": "Tutorial A7 says the benefits routes in routes/index.js check login only. Verified at app/routes/index.js lines 55-56. The isAdmin wiring is commented out beneath them."
+    },
+    {
+      "id": "nodegoat-contributions-session-user",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a4.html",
+      "note": "The A4 tutorial's safe pattern is to read the user id from the session. displayContributions already does that at app/routes/contributions.js lines 13-17."
+    },
+    {
+      "id": "nodegoat-admin-middleware",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a7.html",
+      "note": "Tutorial A7 describes an isAdmin middleware. The live function at app/routes/session.js lines 25-28 loads the session user and checks isAdmin. The benefits routes do not call it."
+    },
+    {
+      "id": "nodegoat-contributions-eval",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a1.html",
+      "note": "Tutorial A1 documents eval of contribution amounts in routes/contributions.js. Verified at lines 32-34. The parseInt alternative in the same function is commented out."
+    },
+    {
+      "id": "nodegoat-allocations-where",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a1.html",
+      "note": "Tutorial A1 documents NoSQL injection on the allocations threshold through MongoDB $where. Verified at app/data/allocations-dao.js lines 77-79, where the threshold is interpolated into $where."
+    },
+    {
+      "id": "nodegoat-allocations-by-id",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/data/allocations-dao.js",
+      "note": "When no threshold is supplied, the same function queries by the parsed user id only (lines 81-83) and does not build $where. That is the safe look-alike next to the documented NoSQL sink."
+    },
+    {
+      "id": "nodegoat-cookie-secret",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a5.html",
+      "note": "Tutorial A5 refers to the session secret as config.cookieSecret. The live literal is config/env/all.js line 8, and server.js passes it to express-session. It is a training string, not a live credential."
+    },
+    {
+      "id": "nodegoat-crypto-key",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a6.html",
+      "note": "Tutorial A6 shows the demo crypto key literal. The same literal is the live config/env/all.js line 9. It is a training string, not a live credential."
+    },
+    {
+      "id": "nodegoat-plaintext-ssn",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/a6.html",
+      "note": "Tutorial A6 says profile data such as the SSN is stored in the clear. Verified at app/data/profile-dao.js lines 61-63. The encrypt helper in that file is commented out."
+    },
+    {
+      "id": "nodegoat-password-hash",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/data/user-dao.js",
+      "note": "addUser hashes the password with bcrypt before insert (lines 28-29). That is the safe look-alike beside the plaintext profile fields."
+    },
+    {
+      "id": "nodegoat-research-fetch",
+      "source": "https://github.com/OWASP/NodeGoat/blob/c5cb68a7084e4ae7dcc60e6a98768720a81841e8/app/views/tutorial/ssrf.html",
+      "note": "The SSRF tutorial says routes/research.js concatenates a caller-supplied URL and fetches it with needle. Verified at app/routes/research.js lines 14-16. No hostname allowlist is present in that function."
+    }
+  ]
+}

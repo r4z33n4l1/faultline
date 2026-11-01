@@ -1,0 +1,110 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "juice-basket-idor",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge basketAccessChallenge (Broken Access Control): view another user's basket. Verified at routes/basket.ts lines 18-32, which load Basket id from the route and return it after a login check that does not compare the id to the caller's basket."
+    },
+    {
+      "id": "juice-basket-item-idor",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge basketManipulateChallenge (Broken Access Control): add a product to another user's basket. Verified at routes/basketItems.ts lines 36-49. The mismatch check uses the first BasketId and the write uses the last."
+    },
+    {
+      "id": "juice-review-idor",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge forgedReviewChallenge (Broken Access Control): edit another user's review. The project's vuln-line markers are routes/updateProductReviews.ts lines 16 and 18. The update does not constrain the author."
+    },
+    {
+      "id": "juice-product-put-authz",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge changeProductChallenge (Broken Access Control). The project's vuln-line is the commented-out isAuthorized middleware on PUT /api/Products/:id at server.ts line 398."
+    },
+    {
+      "id": "juice-forged-feedback",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge forgedFeedbackChallenge (Broken Access Control): post feedback as another user. routes/verify.ts lines 30-36 notice a mismatched UserId and still call next()."
+    },
+    {
+      "id": "juice-product-delete-denied",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/server.ts",
+      "note": "The next line, server.ts 399, denies DELETE /api/Products/:id. That is the safe look-alike beside the uncommented product PUT."
+    },
+    {
+      "id": "juice-profile-session-user",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/routes/updateUserProfile.ts",
+      "note": "updateUserProfile loads the user with the session token's id (lines 17-25) and does not take an object id from the client. CSRF on this handler is excluded separately and is not this label."
+    },
+    {
+      "id": "juice-login-sql",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenges loginAdminChallenge, loginBenderChallenge, loginJimChallenge, and ephemeralAccountantChallenge are outcomes of one SQL injection. The project's vuln-line is routes/login.ts line 34, which concatenates the email into sequelize.query. One site, not four."
+    },
+    {
+      "id": "juice-search-sql",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenges unionSqlInjectionChallenge and dbSchemaChallenge share the project's vuln-line at routes/search.ts line 23. christmasSpecialChallenge is solved by ordering a product that this search injection is documented to reveal. One site."
+    },
+    {
+      "id": "juice-reviews-nosql-where",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge noSqlCommandChallenge (Injection): a sleep via the reviews query. Verified at routes/showProductReviews.ts line 36, which concatenates the id into a MongoDB $where string."
+    },
+    {
+      "id": "juice-orders-nosql-where",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge noSqlOrdersChallenge (Injection). Verified at routes/trackOrder.ts line 18, which concatenates the order id into a MongoDB $where string."
+    },
+    {
+      "id": "juice-reviews-nosql-update",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge noSqlReviewsChallenge (Injection). The project's vuln-lines are routes/updateProductReviews.ts lines 18 and 20: the id comes from the body and multi is true."
+    },
+    {
+      "id": "juice-profile-eval",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge sstiChallenge (Injection): command execution through the profile username. Verified at routes/userProfile.ts lines 57-65, which eval a slice of the username. The username XSS challenge on the same handler is excluded."
+    },
+    {
+      "id": "juice-basket-bound-query",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/routes/basket.ts",
+      "note": "routes/basket.ts line 19 loads the basket with a bound where clause. That query is the safe injection look-alike. The missing ownership check on the same read is the separate authz label."
+    },
+    {
+      "id": "juice-chat-bound-like",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/routes/chat.ts",
+      "note": "The product search tool at routes/chat.ts lines 123-128 passes the term through Sequelize Op.like, which binds the value. That is a safe look-alike beside the concatenated search query."
+    },
+    {
+      "id": "juice-testing-credentials",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge exposedCredentialsChallenge (Sensitive Data Exposure): a testing account hardcoded on the client. Verified at frontend/src/app/login/login.component.ts lines 68-69. The literal is not repeated here."
+    },
+    {
+      "id": "juice-terraform-private-key",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge iacLeakedKeyChallenge. The project's vuln-line is the private_key assignment at terraform/networking.tf line 171. The key material is not repeated here."
+    },
+    {
+      "id": "juice-infra-terraform-private-key",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "The same iacLeakedKeyChallenge marker is on infrastructure/terraform/networking.tf line 171, a second copy of the private key at this commit."
+    },
+    {
+      "id": "juice-llm-key-from-env",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/routes/chat.ts",
+      "note": "routes/chat.ts line 110 reads the LLM API key from LLM_API_KEY and defaults to empty. That is the safe look-alike beside the hardcoded testing credential and the private key."
+    },
+    {
+      "id": "juice-profile-image-fetch",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge ssrfChallenge (Broken Access Control in the project's list, SSRF in the description): the server requests a hidden resource. Verified at routes/profileImageUrlUpload.ts lines 18-24, which fetch the caller-supplied image URL with no allowlist."
+    },
+    {
+      "id": "juice-webhook-env-url",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/lib/webhook.ts",
+      "note": "lib/webhook.ts lines 14-18 fetch only when SOLUTIONS_WEBHOOK is set, and the URL is that environment variable, not request data. That is the safe SSRF look-alike."
+    }
+  ]
+}
