@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -417,8 +418,22 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   return code;
 }
 
+/** True when this module is the process entry, including a symlink on `bin`. */
+export function isCliEntrypoint(argvPath: string | undefined, moduleUrl: string): boolean {
+  if (argvPath === undefined) {
+    return false;
+  }
+  let resolved = argvPath;
+  try {
+    resolved = realpathSync(argvPath);
+  } catch {
+    // A missing path is compared as given.
+  }
+  return moduleUrl === pathToFileURL(resolved).href;
+}
+
 const entry = process.argv[1];
-if (entry !== undefined && import.meta.url === pathToFileURL(entry).href) {
+if (isCliEntrypoint(entry, import.meta.url)) {
   const code = await runCli(process.argv.slice(2));
   process.exit(code);
 }
