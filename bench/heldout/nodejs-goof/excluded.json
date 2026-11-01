@@ -1,0 +1,65 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "goof-open-redirect",
+      "class": "open_redirect",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README lists an open redirect on the login redirect page. res.redirect of that value is not a server-side fetch. Not counted as SSRF."
+    },
+    {
+      "id": "goof-xss",
+      "class": "xss",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README lists cross-site scripting, including the dust about page. Not counted."
+    },
+    {
+      "id": "goof-zip-slip",
+      "class": "path_traversal",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/routes/index.js",
+      "note": "import() extracts an uploaded zip under /tmp. Path traversal, not one of the four classes. Not counted."
+    },
+    {
+      "id": "goof-prototype-pollution",
+      "class": "prototype_pollution",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/routes/index.js",
+      "note": "The chat handler merges the request message with lodash. Prototype pollution is not SQL, NoSQL, command, or code injection. Not counted."
+    },
+    {
+      "id": "goof-dependency-advisories",
+      "class": "vulnerable_component",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README's package advisories (mongoose, st, ms, marked) are dependency versions. Not counted. The exec, find, and render sites are scored under injection."
+    },
+    {
+      "id": "goof-seed-admin-password",
+      "class": "training_login",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/mongoose-db.js",
+      "note": "The seeded admin user password is a training login, not a labeled secret. The session secret, logged token, and database password are the labeled secrets."
+    },
+    {
+      "id": "goof-chat-password",
+      "class": "training_login",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/routes/index.js",
+      "note": "The in-memory chat user password is a training login. Not counted as a secret."
+    },
+    {
+      "id": "goof-todo-by-id",
+      "class": "authz_idor",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "destroy and update load a todo by req.params.id with no session check. The README's code-vulnerability list does not name authorization or IDOR, and todos are not owned per user. Not counted, so a hit there is unmatched."
+    },
+    {
+      "id": "goof-error-handler",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/app.js",
+      "note": "The development error handler is the README's security-misconfiguration item. Not one of the four classes. Not counted."
+    },
+    {
+      "id": "goof-no-ssrf",
+      "class": "ssrf",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README does not document an SSRF. The identify command is command injection. There is no server-side fetch of a caller-supplied URL, and no safe fetch look-alike. SSRF has no rows."
+    }
+  ]
+}

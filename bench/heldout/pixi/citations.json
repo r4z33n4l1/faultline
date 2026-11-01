@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "pixi-api-other-user",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "GET /api/other_user_info is behind the token check and then loads users by req.query.user_id at api/api.js lines 553-556. The id is not the id in the token."
+    },
+    {
+      "id": "pixi-api-picture-delete-open",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "GET /api/picture/delete/:picture at api/api.js lines 260-267 removes a picture by the path id and does not use the token check that the other picture routes use."
+    },
+    {
+      "id": "pixi-web-user-update",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "PUT /user_info/:userid requires login, then findOneAndUpdate selects the user with req.params.userid at app/server.js lines 1241-1243. It does not compare that id to the session user."
+    },
+    {
+      "id": "pixi-web-photo-delete",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "DELETE /user_delete_photo/:picture_id requires login and removes the picture by req.params.picture_id at app/server.js lines 1559-1560. It does not compare creator_id to the session user."
+    },
+    {
+      "id": "pixi-api-user-info",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "GET /api/user/info loads the user with req.user.user._id from the verified token at api/api.js lines 511-512. That is the look-alike beside /api/other_user_info, which takes the id from the query."
+    },
+    {
+      "id": "pixi-web-photo-delete-owner",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "GET /user_delete_photo/:picture_id loads the picture and deletes only when req.session.user._id equals creator_id at app/server.js lines 1584-1590. That is the look-alike beside the DELETE that skips the comparison."
+    },
+    {
+      "id": "pixi-api-login-nosql",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "api_authenticate puts the caller-supplied user and pass straight into findOne at api/api.js line 70. The JSON and extended urlencoded parsers are enabled above that function, so the query document can be an operator object."
+    },
+    {
+      "id": "pixi-web-login-nosql",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "app_authenticate lowercases the email, then findOne still uses the raw pass value at app/server.js line 859. The password field is request data in the Mongo query document."
+    },
+    {
+      "id": "pixi-web-admin-search",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "GET /admin/users/search puts req.query.search into both sides of a Mongo $or at app/server.js line 939. Express query parsing can turn that parameter into an operator object."
+    },
+    {
+      "id": "pixi-api-register-email",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "api_register calls toLowerCase on the email at api/api.js line 101, then findOne matches that string at line 102. An object cannot pass toLowerCase, so this lookup is the look-alike beside the login find that keeps the raw pass."
+    },
+    {
+      "id": "pixi-api-password",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/server.conf",
+      "note": "api/server.conf line 3 is a password literal in the API config module. It is a training value, not a live credential."
+    },
+    {
+      "id": "pixi-api-session-secret",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/server.conf",
+      "note": "api/server.conf line 4 is the session_secret literal the API uses to sign tokens. It is a training value, not a live credential."
+    },
+    {
+      "id": "pixi-web-session-secret",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.conf",
+      "note": "app/server.conf line 2 is the session_secret literal the web process loads. It is a separate file from the API config, and it is a training value."
+    },
+    {
+      "id": "pixi-api-log-secret",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "api_token_check writes config.session_secret to the log at api/api.js line 164 before jwt.verify."
+    },
+    {
+      "id": "pixi-api-log-password",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "api_authenticate writes the caller-supplied password to the log at api/api.js line 69, on the line before the findOne."
+    }
+  ]
+}

@@ -6,6 +6,39 @@ import { formatZodIssues } from "../schema/finding.js";
 
 export const CORPUS_SCHEMA_VERSION = "1";
 
+/**
+ * Fetch groups. `corpus` is the set hunters have been tuned against.
+ * `heldout` is scored and then left alone: those labels must not drive
+ * heuristic changes.
+ */
+export const CORPUS_GROUPS = {
+  corpus: "bench/corpus/manifest.json",
+  heldout: "bench/heldout/manifest.json",
+} as const;
+
+export const CORPUS_RESULT_DIRS = {
+  corpus: "bench/results",
+  heldout: "bench/results/heldout",
+} as const;
+
+export type CorpusGroupName = keyof typeof CORPUS_GROUPS;
+
+export function corpusGroupManifest(group: string): string {
+  if (Object.prototype.hasOwnProperty.call(CORPUS_GROUPS, group)) {
+    return CORPUS_GROUPS[group as CorpusGroupName];
+  }
+  const known = Object.keys(CORPUS_GROUPS).join(", ");
+  throw new Error(`Unknown corpus group "${group}". Known groups: ${known}`);
+}
+
+export function corpusGroupResultDir(group: string): string {
+  if (Object.prototype.hasOwnProperty.call(CORPUS_RESULT_DIRS, group)) {
+    return CORPUS_RESULT_DIRS[group as CorpusGroupName];
+  }
+  const known = Object.keys(CORPUS_RESULT_DIRS).join(", ");
+  throw new Error(`Unknown corpus group "${group}". Known groups: ${known}`);
+}
+
 const sha = z.string().regex(/^[0-9a-f]{40}$/);
 const appName = z.string().regex(/^[a-z][a-z0-9-]*$/);
 const githubUrl = z

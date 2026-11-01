@@ -1,0 +1,77 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "goof-login-nosql",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "routes/index.js",
+      "start_line": 52,
+      "end_line": 52,
+      "vulnerable": true
+    },
+    {
+      "id": "goof-identify-exec",
+      "class": "injection",
+      "cwe": "CWE-78",
+      "file": "routes/index.js",
+      "start_line": 174,
+      "end_line": 174,
+      "vulnerable": true
+    },
+    {
+      "id": "goof-account-render",
+      "class": "injection",
+      "cwe": "CWE-94",
+      "file": "routes/index.js",
+      "start_line": 104,
+      "end_line": 120,
+      "vulnerable": true
+    },
+    {
+      "id": "goof-admin-seed-find",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "mongoose-db.js",
+      "start_line": 48,
+      "end_line": 48,
+      "vulnerable": false
+    },
+    {
+      "id": "goof-session-secret",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "app.js",
+      "start_line": 43,
+      "end_line": 43,
+      "vulnerable": true
+    },
+    {
+      "id": "goof-logged-token",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "app.js",
+      "start_line": 83,
+      "end_line": 84,
+      "vulnerable": true
+    },
+    {
+      "id": "goof-mysql-password",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "typeorm-db.js",
+      "start_line": 12,
+      "end_line": 12,
+      "vulnerable": true
+    },
+    {
+      "id": "goof-mongo-uri-env",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "mongoose-db.js",
+      "start_line": 35,
+      "end_line": 40,
+      "vulnerable": false
+    }
+  ]
+}

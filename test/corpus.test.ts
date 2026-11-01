@@ -7,7 +7,12 @@ import { expect, it } from "vitest";
 import { SARIF_ADAPTERS } from "../src/bench/adapters.js";
 import { classForCwes, cweFromTag } from "../src/bench/cwe-map.js";
 import { fetchPinnedCommit } from "../src/bench/corpus.js";
-import { corpusManifestSchema, validateCorpusDocuments } from "../src/bench/manifest.js";
+import {
+  corpusGroupManifest,
+  corpusManifestSchema,
+  validateCorpusDocuments,
+} from "../src/bench/manifest.js";
+import { parseFetchArgs } from "../scripts/bench-fetch.js";
 import { importSarif } from "../src/bench/sarif-import.js";
 import { semgrepScanArgs } from "../src/bench/semgrep.js";
 import {
@@ -198,6 +203,16 @@ it("rejects a corpus manifest that is not a pinned https GitHub repo", () => {
 
 it("checks the committed corpus documents without reading a checkout", async () => {
   await validateCorpusDocuments(join(process.cwd(), "bench", "corpus", "manifest.json"));
+  await validateCorpusDocuments(corpusGroupManifest("heldout"));
+});
+
+it("defaults bench:fetch to the training group and accepts heldout", () => {
+  expect(parseFetchArgs([])).toEqual({ group: "corpus", names: [] });
+  expect(parseFetchArgs(["--group", "heldout", "pixi"])).toEqual({
+    group: "heldout",
+    names: ["pixi"],
+  });
+  expect(() => parseFetchArgs(["--group", "tuned"])).toThrow(/Unknown corpus group/);
 });
 
 it("shallow-fetches a local pinned commit and refuses a non-https URL", async () => {
@@ -448,9 +463,30 @@ it("keeps a committed results table aligned with the JSON files", async () => {
   }
   const readme = await readFile(join(dir, "README.md"), "utf8");
   expect(loosenTable(readme)).toBe(loosenTable(renderCorpusResultsMarkdown(files)));
+  expect(readme).toContain("must not drive heuristic changes");
   for (const file of files) {
     expect(file.citable).toBe(false);
     expect(file.model).toBe("none, heuristic");
     expect(file.label).toBe("pre-validator heuristic");
+  }
+});
+
+it("keeps held-out scores aligned when they are committed", async () => {
+  const dir = join(process.cwd(), "bench", "results", "heldout");
+  const files = await loadCorpusResultFiles(dir);
+  if (files.length === 0) {
+    return;
+  }
+  const readme = await readFile(join(dir, "README.md"), "utf8");
+  expect(loosenTable(readme)).toBe(loosenTable(renderCorpusResultsMarkdown(files)));
+  expect(readme).toContain("must not drive heuristic changes");
+  const stages = new Set(files.map((file) => file.stage));
+  expect(stages.has("candidates")).toBe(true);
+  expect(stages.has("findings")).toBe(true);
+  expect(stages.has("findings-keep-inconclusive")).toBe(true);
+  expect(stages.has("scan")).toBe(true);
+  for (const file of files) {
+    expect(file.citable).toBe(false);
+    expect(file.model).toBe("none, heuristic");
   }
 });

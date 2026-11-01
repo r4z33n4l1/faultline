@@ -82,3 +82,7 @@ pnpm exec faultline bench --corpus dvna --cache-only \
 ## CI
 
 CI checks the manifest, that every truth id has a citation, that excluded ids are disjoint, the CWE map, the SARIF importer, and a local git fetch of a fixture. It does not clone these apps, and it does not run Semgrep. It does not assert a recall number.
+
+## Held-out group
+
+`pnpm bench:fetch --group heldout` fetches a separate manifest at `bench/heldout/manifest.json`. Those apps were not used to tune the hunters. Their labels must not drive heuristic changes. The set is described in [../heldout/README.md](../heldout/README.md).

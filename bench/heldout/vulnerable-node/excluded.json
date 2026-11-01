@@ -1,0 +1,83 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "vulnerable-node-xss",
+      "class": "xss",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/05-xss-token-theft.md",
+      "note": "Lab 05 is stored XSS in review bodies. Not counted."
+    },
+    {
+      "id": "vulnerable-node-csrf",
+      "class": "csrf",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/06b-csrf.md",
+      "note": "Lab 06b is missing CSRF tokens. Not counted."
+    },
+    {
+      "id": "vulnerable-node-open-redirect",
+      "class": "open_redirect",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/routes/auth.js",
+      "note": "Login redirects to returnurl from the body. Open redirect, not a server-side fetch. Not counted as SSRF."
+    },
+    {
+      "id": "vulnerable-node-path-traversal",
+      "class": "path_traversal",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/15-path-traversal.md",
+      "note": "Lab 15 is path traversal on the image download. Not one of the four classes. Not counted."
+    },
+    {
+      "id": "vulnerable-node-redos",
+      "class": "redos",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/14-redos.md",
+      "note": "Lab 14 is catastrophic backtracking. Not counted."
+    },
+    {
+      "id": "vulnerable-node-prototype-pollution",
+      "class": "prototype_pollution",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/13-prototype-pollution.md",
+      "note": "Lab 13 is prototype pollution in the merge helper. Not SQL, NoSQL, command, or code injection. Not counted."
+    },
+    {
+      "id": "vulnerable-node-mass-assignment",
+      "class": "mass_assignment",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/04-mass-assignment.md",
+      "note": "Lab 04 copies profile and registration fields, including role, onto the user row. Mass assignment, not an IDOR check. The column names in that update are not scored as a separate injection row."
+    },
+    {
+      "id": "vulnerable-node-price-tamper",
+      "class": "insecure_design",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/06-price-tamper-checkout.md",
+      "note": "Lab 06 trusts amount_cents from the client. Price tampering is not authorization or injection. Not counted."
+    },
+    {
+      "id": "vulnerable-node-pan-storage",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/08-crypto-pan-storage.md",
+      "note": "Lab 08 stores the card number from the request. That is data at rest, not a secret literal in source. Not counted."
+    },
+    {
+      "id": "vulnerable-node-debug-errors",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/09-misconfig-debug.md",
+      "note": "Lab 09 renders stack traces when debug is on. Not counted."
+    },
+    {
+      "id": "vulnerable-node-log-injection",
+      "class": "log_injection",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/routes/pages.js",
+      "note": "The contact handler logs the message field. Log injection, not a secret written from source. The login password log is the scored secrets row."
+    },
+    {
+      "id": "vulnerable-node-sast-seeds",
+      "class": "sast_unit_tests",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/sast/README.md",
+      "note": "sast/seeds are an isolated scanner unit test. The project says not to mix them with the shop. They are not web-app truth. A hit in that directory is unmatched."
+    },
+    {
+      "id": "vulnerable-node-docker-pipelines",
+      "class": "misconfiguration",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/17-docker-hardening.md",
+      "note": "Labs 11 and 17 are pipeline and container hardening. Not counted."
+    }
+  ]
+}

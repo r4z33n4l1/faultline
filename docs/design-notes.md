@@ -94,6 +94,8 @@ Not in this pass: fetching a pull request, inline review comments, applying the 
 
 `bench/corpus` adds NodeGoat, DVNA, and Juice Shop at pinned commits. The source is fetched into a gitignored cache and is not vendored. Semgrep OSS is the free static baseline. Paid agent tools have a SARIF import stub and are not run. Committed scores are heuristic runs with no model, not product claims.
 
+`bench/heldout` is a second fetch group (`pnpm bench:fetch --group heldout`) with three other intentionally vulnerable Node apps. Those labels were written before any scan of that set. They must not drive heuristic changes.
+
 ## Inventory budgets
 
 Recon walks the tree, then reads source and manifests up to `--max-files` (default 5000) and `--max-bytes` (default 8000000). A file over the per-file cap is skipped and the walk continues. Default skips are dependency and build directories, lockfiles, `*.min.js` and other minified bundles, `__snapshots__` and `*.snap` files, and `frontend/src/assets`. `.gitignore` still applies. `--exclude` adds globs. `--include` keeps a matching path that a default skip, gitignore, or exclude would drop, and it does not by itself limit the scan to those paths.

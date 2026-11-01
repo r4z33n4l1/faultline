@@ -1,0 +1,47 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "pixi-mass-assignment",
+      "class": "mass_assignment",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/api.js",
+      "note": "Registration and profile edit copy is_admin from the body. Mass assignment, not an object-id authorization check. Not counted as authz/IDOR."
+    },
+    {
+      "id": "pixi-cookie-httponly",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "The web session cookie sets httpOnly to false. Cookie flags are not a hardcoded secret. The session_secret literal is scored separately. Not counted."
+    },
+    {
+      "id": "pixi-repeated-idor",
+      "class": "authz_idor",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "other_users_profile, other_users_pictures, and the token-checked picture delete repeat the labeled pattern: an id from the query or path and no owner comparison. They are not extra rows. A hit only on those lines is unmatched."
+    },
+    {
+      "id": "pixi-reflected-text",
+      "class": "xss",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "Several handlers echo the query string into a text response. Reflected XSS. Not counted."
+    },
+    {
+      "id": "pixi-web-password-log",
+      "class": "secrets",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/app/server.js",
+      "note": "The web register handler also logs the submitted password. That is the same log pattern as api/api.js line 69, which is the scored row. Not a second row."
+    },
+    {
+      "id": "pixi-no-ssrf",
+      "class": "ssrf",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/Readme.md",
+      "note": "The README says the app is intentionally vulnerable for scanners. The API and web server have no fetch or HTTP client call whose URL comes from the request, and no safe allowlisted fetch beside one. SSRF has no rows."
+    },
+    {
+      "id": "pixi-no-safe-secret",
+      "class": "secrets",
+      "source": "https://github.com/DevSlop/Pixi/blob/cb716a94fa368acade96e9bdb8b25c1a68703e60/api/server.conf",
+      "note": "Session secrets and the API password are literals. The Mongo URL has no password, and nothing reads a secret only from the environment. There is no safe secrets look-alike, so secrets FPR is n/a."
+    }
+  ]
+}

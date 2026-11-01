@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ensureCorpusCache, resolveCorpusPaths } from "../src/bench/corpus.js";
 import { executeSemgrepBench } from "../src/bench/external.js";
-import { loadCorpusManifest } from "../src/bench/manifest.js";
+import {
+  corpusGroupManifest,
+  corpusGroupResultDir,
+  loadCorpusManifest,
+} from "../src/bench/manifest.js";
 import { executeBench, readGitCommit } from "../src/bench/run.js";
 import {
   CORPUS_RESULTS_LABEL,
@@ -20,6 +24,13 @@ import {
 } from "../src/bench/summary.js";
 import type { BenchStage } from "../src/bench/result.js";
 import { TOOL_VERSION } from "../src/version.js";
+import { parseFetchArgs } from "./bench-fetch.js";
+
+type RecordedStage = "candidates" | "findings" | "findings-keep-inconclusive";
+
+function benchStage(stage: RecordedStage): BenchStage {
+  return stage === "candidates" ? "candidates" : "findings";
+}
 
 const TRUNCATION_NOTE = "Inventory truncated at the file or byte cap.";
 
@@ -35,12 +46,21 @@ async function inventoryTruncated(outDir: string): Promise<boolean> {
 /**
  * Static Faultline passes (no provider) at the candidates and findings stages,
  * plus Semgrep unless `--faultline-only` is set. Writes bench/results.
+ * `--group heldout` writes bench/results/heldout and also scores
+ * `--stage findings --keep-inconclusive`. It does not rewrite the training
+ * table. Held-out labels must not drive heuristic changes.
  * Does not install or run the apps. The markdown table includes every JSON
- * file in bench/results, so a Semgrep file already on disk stays in the table.
+ * file in that results directory, so a Semgrep file already on disk stays
+ * in the table.
  */
 async function main(): Promise<void> {
   const cwd = process.cwd();
-  const manifestPath = "bench/corpus/manifest.json";
+  const fetched = parseFetchArgs(process.argv.slice(2).filter((arg) => arg !== "--faultline-only"));
+  const group = fetched.group;
+  if (fetched.names.length > 0) {
+    throw new Error("bench:record fetches every app in the group; pass --group, not app names");
+  }
+  const manifestPath = corpusGroupManifest(group);
   const manifest = await loadCorpusManifest(manifestPath);
   const commit = await readGitCommit(cwd);
   if (commit === null) {
@@ -50,8 +70,11 @@ async function main(): Promise<void> {
   const date = utcDate(now);
   const faultlineOnly = process.argv.includes("--faultline-only");
   const bin = process.env.SEMGREP_BIN ?? "semgrep";
-  const stages: BenchStage[] = ["candidates", "findings"];
-  const faultlineByStage = new Map<BenchStage, CorpusAppResult[]>(
+  const stages: RecordedStage[] =
+    group === "heldout"
+      ? ["candidates", "findings", "findings-keep-inconclusive"]
+      : ["candidates", "findings"];
+  const faultlineByStage = new Map<RecordedStage, CorpusAppResult[]>(
     stages.map((stage) => [stage, []]),
   );
   const semgrepApps: CorpusAppResult[] = [];
@@ -66,9 +89,10 @@ async function main(): Promise<void> {
         target: paths.targetLabel,
         cwd,
         outDir: faultlineOut,
-        stage,
+        stage: benchStage(stage),
         truthPath: paths.truthLabel,
         model: null,
+        keepInconclusive: stage === "findings-keep-inconclusive",
       });
       faultlineByStage
         .get(stage)
@@ -96,35 +120,39 @@ async function main(): Promise<void> {
     semgrepApps.push(corpusAppResult(app, semgrep, null));
     process.stdout.write(`${app.name} semgrep recall ${String(semgrep.overall.recall)}\n`);
   }
-  for (const stage of stages) {
-    const seededOut = join(scratch, `seeded-app-faultline-${stage}`);
-    const seeded = await executeBench({
-      target: "bench/seeded-app",
-      cwd,
-      outDir: seededOut,
-      stage,
-      truthPath: "bench/seeded-app/truth.json",
-      model: null,
-    });
-    faultlineByStage.get(stage)?.push(
-      corpusAppResultSchema.parse({
-        name: "seeded-app",
-        upstream: "bench/seeded-app",
-        license: "MIT",
-        corpus_commit: commit,
-        target: seeded.target,
-        truth: seeded.truth,
-        inventory_truncated: await inventoryTruncated(seededOut),
-        counts: seeded.counts,
-        overall: seeded.overall,
-        classes: seeded.classes,
-        entries: seeded.entries,
-        unmatched: seeded.unmatched,
-      }),
-    );
-    process.stdout.write(`seeded-app faultline ${stage} recall ${String(seeded.overall.recall)}\n`);
+  if (group === "corpus") {
+    for (const stage of stages) {
+      const seededOut = join(scratch, `seeded-app-faultline-${stage}`);
+      const seeded = await executeBench({
+        target: "bench/seeded-app",
+        cwd,
+        outDir: seededOut,
+        stage: benchStage(stage),
+        truthPath: "bench/seeded-app/truth.json",
+        model: null,
+      });
+      faultlineByStage.get(stage)?.push(
+        corpusAppResultSchema.parse({
+          name: "seeded-app",
+          upstream: "bench/seeded-app",
+          license: "MIT",
+          corpus_commit: commit,
+          target: seeded.target,
+          truth: seeded.truth,
+          inventory_truncated: await inventoryTruncated(seededOut),
+          counts: seeded.counts,
+          overall: seeded.overall,
+          classes: seeded.classes,
+          entries: seeded.entries,
+          unmatched: seeded.unmatched,
+        }),
+      );
+      process.stdout.write(
+        `seeded-app faultline ${stage} recall ${String(seeded.overall.recall)}\n`,
+      );
+    }
   }
-  const resultsDir = join(cwd, "bench", "results");
+  const resultsDir = join(cwd, corpusGroupResultDir(group));
   await mkdir(resultsDir, { recursive: true });
   const written: string[] = [];
   for (const stage of stages) {
