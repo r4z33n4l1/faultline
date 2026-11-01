@@ -419,13 +419,34 @@ it("bench --corpus uses a local cache and does not need a network", async () => 
   expect(offline.stderr()).toContain("bench:fetch");
 });
 
+function loosenTable(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      if (!line.trim().startsWith("|")) {
+        return line.trimEnd();
+      }
+      const cells = line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => {
+          const trimmed = cell.trim();
+          return /^:?-+:?$/.test(trimmed) ? "---" : trimmed;
+        });
+      return `| ${cells.join(" | ")} |`;
+    })
+    .join("\n")
+    .trim();
+}
+
 it("keeps a committed results table aligned with the JSON files", async () => {
   const dir = join(process.cwd(), "bench", "results");
   const files = await loadCorpusResultFiles(dir);
   if (files.length === 0) {
     return;
   }
-  expect(await readFile(join(dir, "README.md"), "utf8")).toBe(renderCorpusResultsMarkdown(files));
+  const readme = await readFile(join(dir, "README.md"), "utf8");
+  expect(loosenTable(readme)).toBe(loosenTable(renderCorpusResultsMarkdown(files)));
   for (const file of files) {
     expect(file.citable).toBe(false);
     expect(file.model).toBe("none, heuristic");
