@@ -1,1 +1,4 @@
-{ "name": "handler-ref-app", "private": true }
+{
+  "name": "handler-ref-app",
+  "private": true
+}

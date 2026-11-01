@@ -1,1 +1,4 @@
-{ "name": "query-build-app", "private": true }
+{
+  "name": "query-build-app",
+  "private": true
+}

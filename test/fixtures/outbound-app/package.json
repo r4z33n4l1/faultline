@@ -1,1 +1,4 @@
-{ "name": "outbound-app", "private": true }
+{
+  "name": "outbound-app",
+  "private": true
+}

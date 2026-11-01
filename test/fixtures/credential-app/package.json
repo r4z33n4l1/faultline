@@ -1,1 +1,4 @@
-{ "name": "credential-app", "private": true }
+{
+  "name": "credential-app",
+  "private": true
+}
