@@ -7,7 +7,7 @@ compatibility: Requires Node.js 20 or newer. Installs from git via npx, not from
 
 # Faultline
 
-Faultline is a security-detector CLI. It inventories a tree and writes unvalidated candidates for authz/IDOR, injection, secrets, and SSRF. With a provider, the disproof validator confirms a candidate only after two independent grounded replies. Without a provider, bounded heuristic checks can promote a medium or high confidence candidate. `--no-validate` leaves `findings.json` empty.
+Faultline is a security-detector CLI. It inventories a tree and writes unvalidated candidates for authz/IDOR, injection, secrets, and SSRF. With a provider, the disproof validator confirms a candidate only after two independent grounded replies. A disproof without a grounded guarding line is inconclusive, not disproved. `--keep-inconclusive` is off unless the user asks for it. Without a provider, bounded heuristic checks can promote a medium or high confidence candidate. `--no-validate` leaves `findings.json` empty.
 
 This file follows the Agent Skills layout: YAML `name` and `description`, then instructions. The directory convention matches Cloudflare's security-audit skill (`skills/<name>/SKILL.md` in [cloudflare/security-audit-skill](https://github.com/cloudflare/security-audit-skill), MIT). The steps below are Faultline's. They do not reuse that skill's text.
 

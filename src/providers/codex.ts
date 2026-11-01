@@ -26,6 +26,8 @@ export const CODEX_LOGIN_TIMEOUT_MS = 15_000;
 export const CODEX_MAX_OUTPUT_BYTES = 1_000_000;
 export const CODEX_MAX_PROMPT_BYTES = 2_000_000;
 export const CODEX_MAX_CONCURRENCY = 2;
+/** Recorded when Codex was used and neither `-m` nor the exec stream named a model. */
+export const CODEX_UNKNOWN_MODEL = "codex-cli-default";
 
 const OUTPUT_NAME = "last-message.txt";
 const DETAIL_CHARS = 300;
@@ -149,6 +151,85 @@ export function buildCodexPrompt(messages: readonly ModelMessage[]): string {
   return parts.join("\n");
 }
 
+const MODEL_KEYS = new Set(["model", "model_id", "modelId"]);
+const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,80}$/;
+const SKIP_MODEL = new Set(["auto", "chatgpt", "codex", "default", "openai"]);
+
+function isModelId(value: string): boolean {
+  if (!MODEL_ID.test(value) || value.length < 2 || SKIP_MODEL.has(value.toLowerCase())) {
+    return false;
+  }
+  return !value.includes("..") && !value.includes("//");
+}
+
+function findModel(value: unknown, depth: number): string | undefined {
+  if (depth > 6) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findModel(item, depth + 1);
+      if (found !== undefined) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (MODEL_KEYS.has(key) && typeof child === "string" && isModelId(child)) {
+      return child;
+    }
+  }
+  for (const child of Object.values(value)) {
+    const found = findModel(child, depth + 1);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
+/** Model id from Codex JSON events or a `model:` line. Does not read `-m`; the caller already has that. */
+export function modelIdFromCodexOutput(stdout: string, stderr: string): string | undefined {
+  for (const line of `${stdout}\n${stderr}`.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) {
+      continue;
+    }
+    try {
+      const found = findModel(JSON.parse(trimmed) as unknown, 0);
+      if (found !== undefined) {
+        return found;
+      }
+    } catch {
+      /* A non-JSON line is scanned as plain text below. */
+    }
+  }
+  const plain = /(?:^|\n)\s*model\s*[:=]\s*["']?([A-Za-z0-9][A-Za-z0-9._:/+-]{1,80})/i.exec(
+    `${stderr}\n${stdout}`,
+  );
+  const id = plain?.[1];
+  if (id !== undefined && isModelId(id)) {
+    return id;
+  }
+  return undefined;
+}
+
+/** First semver-looking token in `codex --version` or a CLI banner. */
+export function codexVersionFromText(text: string): string | undefined {
+  const match = /\b(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\b/.exec(text);
+  return match?.[1];
+}
+
+export function codexUnknownModelLabel(cliVersion: string | undefined): string {
+  const version =
+    cliVersion !== undefined && cliVersion.length > 0 ? cliVersion : "version unknown";
+  return `${CODEX_UNKNOWN_MODEL} (codex ${version})`;
+}
+
 /** `codex exec` argv. The prompt is not an argument; `-` reads it from stdin. */
 export function buildCodexExecArgs(input: {
   cwd: string;
@@ -236,21 +317,37 @@ const slots = new SlotGate(CODEX_MAX_CONCURRENCY);
 export class CodexProvider implements ModelProvider {
   readonly name = "codex";
   readonly #bin: string;
-  readonly #model: string | undefined;
+  readonly #requested: string | undefined;
   readonly #timeoutMs: number;
   readonly #maxOutputBytes: number;
   readonly #env: NodeJS.ProcessEnv;
   readonly #spawn: CodexSpawn;
   #loggedIn = false;
+  #observed: string | undefined;
+  #cliVersion: string | undefined;
+  #versionProbed = false;
 
   constructor(options: ProviderCreateOptions = {}) {
     const source = options.codexEnv ?? process.env;
     this.#bin = resolveBin(options.codexBin, source);
-    this.#model = resolveModel(options.model);
+    this.#requested = resolveModel(options.model);
     this.#timeoutMs = resolveTimeout(options.timeoutMs);
     this.#maxOutputBytes = resolveOutputCap(options.codexMaxOutputBytes);
     this.#env = codexChildEnv(source);
     this.#spawn = options.codexSpawn ?? defaultCodexSpawn;
+  }
+
+  /** `-m` when it was passed, otherwise a model id seen on the Codex event stream. */
+  get model(): string | undefined {
+    return this.#requested ?? this.#observed;
+  }
+
+  async resolveModel(): Promise<string> {
+    const known = this.model;
+    if (known !== undefined) {
+      return known;
+    }
+    return codexUnknownModelLabel(await this.#readCliVersion());
   }
 
   async complete(input: CompleteInput): Promise<string> {
@@ -305,7 +402,7 @@ export class CodexProvider implements ModelProvider {
       args: buildCodexExecArgs({
         cwd,
         outputFile,
-        ...(this.#model === undefined ? {} : { model: this.#model }),
+        ...(this.#requested === undefined ? {} : { model: this.#requested }),
       }),
       cwd,
       stdin: prompt,
@@ -315,6 +412,7 @@ export class CodexProvider implements ModelProvider {
       spawnImpl: this.#spawn,
       ...(signal === undefined ? {} : { signal }),
     });
+    this.#noteCodexOutput(result.stdout, result.stderr);
     assertProcess(this.#bin, "codex exec", result, this.#timeoutMs);
     if (result.exitCode !== 0) {
       const status = result.exitCode === null ? "no status" : `status ${result.exitCode}`;
@@ -328,6 +426,49 @@ export class CodexProvider implements ModelProvider {
       throw new ProviderResponseError(this.name, "no final message");
     }
     return text;
+  }
+
+  #noteCodexOutput(stdout: string, stderr: string): void {
+    const seen = modelIdFromCodexOutput(stdout, stderr);
+    if (seen !== undefined) {
+      this.#observed = seen;
+    }
+    const version = codexVersionFromText(`${stdout}\n${stderr}`);
+    if (version !== undefined) {
+      this.#cliVersion = version;
+    }
+  }
+
+  async #readCliVersion(): Promise<string | undefined> {
+    if (this.#versionProbed) {
+      return this.#cliVersion;
+    }
+    this.#versionProbed = true;
+    const dir = await mkdtemp(join(tmpdir(), "faultline-codex-"));
+    try {
+      const timeoutMs = Math.min(this.#timeoutMs, CODEX_LOGIN_TIMEOUT_MS);
+      const result = await runCodexProcess({
+        bin: this.#bin,
+        args: ["--version"],
+        cwd: dir,
+        stdin: "",
+        timeoutMs,
+        maxOutputBytes: this.#maxOutputBytes,
+        env: this.#env,
+        spawnImpl: this.#spawn,
+      });
+      if (result.exitCode === 0) {
+        const version = codexVersionFromText(`${result.stdout}\n${result.stderr}`);
+        if (version !== undefined) {
+          this.#cliVersion = version;
+        }
+      }
+    } catch {
+      /* A missing version still leaves a citable placeholder model id. */
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+    return this.#cliVersion;
   }
 }
 

@@ -2,7 +2,7 @@
 
 `faultline bench` measures a scan against labeled sites. The command is the entry point because it needs the same provider flags, output directory, and exit codes as `scan`. A package script would only wrap that command.
 
-A bench file is one run. It is not a Faultline product result. Cite a number only when that run recorded a provider name, a model id, and a commit sha. `citable` in `bench-result.json` is true only in that case. The commit is `git rev-parse HEAD` in the process working directory, usually the Faultline checkout. Labels are independent of the current heuristic, so a safe site that the pre-pass flags is a false positive.
+A bench file is one run. It is not a Faultline product result. Cite a number only when that run recorded a provider name, a model id, and a commit sha. `citable` in `bench-result.json` is true only in that case. The commit is the Faultline checkout (`git rev-parse HEAD` from the package root), not the scanned application. The same provider, model, commit, and start timestamp are written on `findings.json` and the SARIF run. Labels are independent of the current heuristic, so a safe site that the pre-pass flags is a false positive. `--stage findings --keep-inconclusive` scores inconclusive candidates as low-confidence findings. Without that flag they stay out of the score.
 
 ## Command
 

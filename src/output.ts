@@ -1,12 +1,13 @@
-import type { DisprovedCandidate } from "./validator/index.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   findingSchema,
   findingsFileSchema,
   formatZodIssues,
+  type DisprovedEntry,
   type Finding,
   type FindingsFile,
+  type InconclusiveEntry,
 } from "./schema/finding.js";
 import { renderReport } from "./report.js";
 import { serializeSarif, toSarif } from "./sarif.js";
@@ -16,6 +17,8 @@ export interface FindingsDraft {
   tool: FindingsFile["tool"];
   run: FindingsFile["run"];
   findings: readonly unknown[];
+  disproved?: readonly DisprovedEntry[];
+  inconclusive?: readonly InconclusiveEntry[];
 }
 
 function verdictOf(value: unknown): unknown {
@@ -25,12 +28,12 @@ function verdictOf(value: unknown): unknown {
   return value.validator_verdict;
 }
 
-/** Drop anything that is not a confirmed finding. Invalid confirmed findings throw. */
+/** Drop anything that is not a confirmed or kept-inconclusive finding. Invalid kept findings throw. */
 export function gateFindings(findings: readonly unknown[]): Finding[] {
   const kept: Finding[] = [];
   for (let index = 0; index < findings.length; index += 1) {
     const finding = findings[index];
-    if (verdictOf(finding) !== "confirmed") {
+    if (verdictOf(finding) !== "confirmed" && verdictOf(finding) !== "inconclusive") {
       continue;
     }
     const parsed = findingSchema.safeParse(finding);
@@ -51,7 +54,8 @@ export interface WriteRunOptions {
   scanRoot?: string;
   /** Included in report.md as a count only. Omitted for commands that do not hunt. */
   unvalidatedCandidates?: number;
-  disproved?: readonly DisprovedCandidate[];
+  disproved?: readonly DisprovedEntry[];
+  inconclusive?: readonly InconclusiveEntry[];
   /** Set for a PR-scoped run. Lists repo-relative changed files. An empty list is still PR-scoped. */
   changedFiles?: readonly string[];
   /** Context window recorded in a PR-scoped report. */
@@ -68,12 +72,15 @@ export async function writeRunOutput(
   const file = findingsFileSchema.parse({
     ...draft,
     findings: gateFindings(draft.findings),
+    disproved: options.disproved ?? draft.disproved ?? [],
+    inconclusive: options.inconclusive ?? draft.inconclusive ?? [],
   });
   const scanRoot = options.scanRoot ?? process.cwd();
   const findingsText = serializeFindings(file);
   const reportText = renderReport(file, {
     unvalidatedCandidates: options.unvalidatedCandidates,
-    disproved: options.disproved,
+    disproved: file.disproved,
+    inconclusive: file.inconclusive,
     changedFiles: options.changedFiles,
     hunkContext: options.hunkContext,
     inventoryNote: options.inventoryNote,

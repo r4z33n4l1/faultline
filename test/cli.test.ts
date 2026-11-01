@@ -92,7 +92,7 @@ it("scan defaults --out to ./faultline-out", async () => {
   expect(findings.run.mode).toBe("scan");
   expect(findings.run.target).toBe("src");
   expect(findings.findings).toEqual([]);
-  expect(findings.run.provider).toBeUndefined();
+  expect(findings.run.provider).toBeNull();
   expect(await readFile(join(dir, "faultline-out", "report.md"), "utf8")).toContain(
     "No confirmed findings.",
   );

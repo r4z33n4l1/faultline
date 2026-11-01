@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { CollectOptions } from "../recon/inventory.js";
@@ -10,7 +9,7 @@ import { ANTHROPIC_DEFAULT_MODEL } from "../providers/anthropic.js";
 import type { ProviderConfig } from "../providers/config.js";
 import { OPENAI_DEFAULT_MODEL } from "../providers/openai.js";
 import type { ModelProvider } from "../providers/types.js";
-import { TOOL_NAME, TOOL_VERSION } from "../version.js";
+import { TOOL_NAME, TOOL_VERSION, faultlineCommit } from "../version.js";
 import { renderBenchMarkdown } from "./format.js";
 import {
   BENCH_DISCLAIMER,
@@ -29,8 +28,10 @@ export interface BenchRequest {
   /** Path to truth.json. Relative paths are resolved from `cwd`. */
   truthPath: string;
   provider?: ModelProvider;
-  /** Model id to record. Null when this run did not call a named model. */
+  /** Model id to record when the provider does not resolve one. Null when unnamed. */
   model: string | null;
+  /** Promote inconclusive candidates when stage is findings. Default off. */
+  keepInconclusive?: boolean;
   inventory?: CollectOptions;
   startedAt?: Date;
   runId?: string;
@@ -53,22 +54,13 @@ export function recordedModel(config: ProviderConfig): string | null {
   return null;
 }
 
-export function readGitCommit(cwd: string): Promise<string | null> {
-  return new Promise((resolvePromise) => {
-    execFile(
-      "git",
-      ["rev-parse", "HEAD"],
-      { cwd, timeout: 5_000 },
-      (error, stdout: string | Buffer) => {
-        if (error) {
-          resolvePromise(null);
-          return;
-        }
-        const sha = stdout.toString().trim();
-        resolvePromise(/^[0-9a-f]{40}$/.test(sha) ? sha : null);
-      },
-    );
-  });
+/**
+ * Faultline checkout commit. A working-directory argument is ignored so record
+ * scripts keep compiling; the scanned application commit is not used.
+ */
+export function readGitCommit(cwd?: string): Promise<string | null> {
+  void cwd;
+  return faultlineCommit();
 }
 
 function lineCount(text: string): number {
@@ -240,12 +232,14 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
     outDir: string;
     provider?: ModelProvider;
     validate: boolean;
+    keepInconclusive?: boolean;
     inventory?: CollectOptions;
     startedAt?: Date;
     runId?: string;
   } = {
     target: request.target,
     validate: request.stage === "findings",
+    keepInconclusive: request.keepInconclusive === true,
     cwd: request.cwd,
     outDir: request.outDir,
   };
@@ -265,7 +259,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
   const stageName = request.stage === "candidates" ? "candidates.json" : "findings.json";
   const stagePath = resolve(request.outDir, stageName);
   const json = await readJson(stagePath);
-  const commit = await readGitCommit(request.cwd);
+  const commit = await faultlineCommit();
   let result: BenchResult;
   if (request.stage === "candidates") {
     const parsed = candidatesFileSchema.safeParse(json);
@@ -294,7 +288,13 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
 
 function draftFromScan(
   request: BenchRequest,
-  run: { id: string; started_at: string; provider?: string },
+  run: {
+    id: string;
+    started_at: string;
+    provider?: string | null;
+    model?: string | null;
+    commit?: string | null;
+  },
   commit: string | null,
 ): BenchResultDraft {
   return {
@@ -305,7 +305,7 @@ function draftFromScan(
     runId: run.id,
     startedAt: run.started_at,
     provider: run.provider ?? null,
-    model: request.model,
-    commit,
+    model: run.model ?? request.model,
+    commit: run.commit ?? commit,
   };
 }

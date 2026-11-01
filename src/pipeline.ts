@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ModelProvider } from "./providers/types.js";
+import { resolveRunModel, type ModelProvider } from "./providers/types.js";
 import {
   SCHEMA_VERSION,
   findingsFileSchema,
@@ -7,15 +7,30 @@ import {
   type Finding,
   type RunMode,
 } from "./schema/finding.js";
-import { TOOL_NAME, TOOL_VERSION } from "./version.js";
+import { TOOL_NAME, TOOL_VERSION, faultlineCommit } from "./version.js";
 
 export interface PipelineInput {
   mode: RunMode;
   target: string;
   provider?: ModelProvider;
+  /** Resolved model id. Null when this run did not call a named model. */
+  model?: string | null;
+  /** Faultline checkout commit. Null when git cannot answer. */
+  commit?: string | null;
   startedAt?: Date;
   runId?: string;
   findings?: readonly Finding[];
+}
+
+export async function provenanceFor(
+  provider: ModelProvider | undefined,
+  configuredModel: string | null = null,
+): Promise<{ model: string | null; commit: string | null }> {
+  const [model, commit] = await Promise.all([
+    resolveRunModel(provider, configuredModel),
+    faultlineCommit(),
+  ]);
+  return { model, commit };
 }
 
 /** Assemble the run envelope for confirmed findings. */
@@ -25,10 +40,10 @@ export function runPipeline(input: PipelineInput): FindingsFile {
     started_at: (input.startedAt ?? new Date()).toISOString(),
     target: input.target,
     mode: input.mode,
+    provider: input.provider?.name ?? null,
+    model: input.model ?? input.provider?.model ?? null,
+    commit: input.commit ?? null,
   };
-  if (input.provider !== undefined) {
-    run.provider = input.provider.name;
-  }
 
   return findingsFileSchema.parse({
     schema_version: SCHEMA_VERSION,

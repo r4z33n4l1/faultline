@@ -7,6 +7,7 @@ export const SEVERITIES = ["informational", "low", "medium", "high", "critical"]
 export const CONFIDENCE_LEVELS = ["low", "medium", "high"] as const;
 export const EXPLOITABILITIES = ["theoretical", "poc", "demonstrated"] as const;
 export const DISPROOF_VERDICTS = ["confirmed", "rejected", "inconclusive"] as const;
+export const FINDING_VERDICTS = ["confirmed", "inconclusive"] as const;
 export const RUN_MODES = ["scan", "pr"] as const;
 
 export type RunMode = (typeof RUN_MODES)[number];
@@ -56,12 +57,42 @@ export const findingSchema = z.strictObject({
       summary: nonEmpty,
     }),
   ),
-  validator_verdict: z.literal("confirmed"),
+  validator_verdict: z.enum(FINDING_VERDICTS),
   suggested_fix: z.strictObject({
     summary: nonEmpty,
     patch: nonEmpty.optional(),
   }),
   references: z.array(nonEmpty),
+});
+
+const nullableName = nonEmpty.nullable();
+
+/** Provenance recorded on every scan and PR run. Null means the value was not available. */
+export const runSchema = z.strictObject({
+  id: nonEmpty,
+  started_at: z.iso.datetime(),
+  target: nonEmpty,
+  mode: z.enum(RUN_MODES),
+  provider: nullableName.optional(),
+  model: nullableName.optional(),
+  commit: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/)
+    .nullable()
+    .optional(),
+});
+
+export const disprovedEntrySchema = z.strictObject({
+  class: z.enum(FINDING_CLASSES),
+  file: nonEmpty,
+  start_line: positiveLine,
+  end_line: positiveLine.optional(),
+  symbol: nonEmpty,
+  reason: nonEmpty,
+});
+
+export const inconclusiveEntrySchema = disprovedEntrySchema.extend({
+  kept: z.boolean(),
 });
 
 export const findingsFileSchema = z.strictObject({
@@ -70,18 +101,16 @@ export const findingsFileSchema = z.strictObject({
     name: nonEmpty,
     version: nonEmpty,
   }),
-  run: z.strictObject({
-    id: nonEmpty,
-    started_at: z.iso.datetime(),
-    target: nonEmpty,
-    mode: z.enum(RUN_MODES),
-    provider: nonEmpty.optional(),
-  }),
+  run: runSchema,
   findings: z.array(findingSchema),
+  disproved: z.array(disprovedEntrySchema).optional(),
+  inconclusive: z.array(inconclusiveEntrySchema).optional(),
 });
 
 export type Finding = z.infer<typeof findingSchema>;
 export type FindingsFile = z.infer<typeof findingsFileSchema>;
+export type DisprovedEntry = z.infer<typeof disprovedEntrySchema>;
+export type InconclusiveEntry = z.infer<typeof inconclusiveEntrySchema>;
 export type Severity = (typeof SEVERITIES)[number];
 export type FindingClass = (typeof FINDING_CLASSES)[number];
 

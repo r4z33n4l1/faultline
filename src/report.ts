@@ -1,10 +1,11 @@
-import type { DisprovedCandidate } from "./validator/index.js";
 import { DEFAULT_HUNK_CONTEXT } from "./pr/diff.js";
 import {
   SEVERITIES,
+  type DisprovedEntry,
   type Finding,
   type FindingClass,
   type FindingsFile,
+  type InconclusiveEntry,
   type Severity,
 } from "./schema/finding.js";
 
@@ -20,7 +21,7 @@ function findingCount(count: number): string {
   return count === 1 ? "1 confirmed finding" : `${count} confirmed findings`;
 }
 
-function locationLabel(location: Finding["location"]): string {
+function locationLabel(location: { file: string; start_line: number; end_line?: number }): string {
   if (location.end_line === undefined) {
     return `${location.file}:${location.start_line}`;
   }
@@ -37,10 +38,11 @@ function fence(code: string): string {
 
 function renderFinding(finding: Finding, index: number): string[] {
   const where = locationLabel(finding.location);
+  const status = finding.validator_verdict === "inconclusive" ? "Inconclusive" : "Confirmed";
   const lines = [
     `### ${index + 1}. ${finding.root_cause}`,
     "",
-    `Confirmed ${CLASS_LABELS[finding.class]} finding \`${finding.id}\` at \`${where}\`.`,
+    `${status} ${CLASS_LABELS[finding.class]} finding \`${finding.id}\` at \`${where}\`.`,
     `Severity is ${finding.severity}. Confidence is ${finding.confidence.level}: ${finding.confidence.reason}`,
     `Exploitability is ${finding.exploitability}.`,
   ];
@@ -88,7 +90,8 @@ function renderFinding(finding: Finding, index: number): string[] {
 export interface ReportOptions {
   /** When set, the report records the count and no candidate details. */
   unvalidatedCandidates?: number;
-  disproved?: readonly DisprovedCandidate[];
+  disproved?: readonly DisprovedEntry[];
+  inconclusive?: readonly InconclusiveEntry[];
   /** Set for a PR-scoped run, including when the diff changes no files. */
   changedFiles?: readonly string[];
   /** Lines of context used for hunk overlap. Reported only when `changedFiles` is set. */
@@ -97,12 +100,22 @@ export interface ReportOptions {
   inventoryNote?: string;
 }
 
+function reviewLine(
+  entry: { file: string; start_line: number; end_line?: number; class: string; reason: string },
+  suffix = "",
+): string {
+  return `- \`${locationLabel(entry)}\` (${entry.class}${suffix}): ${entry.reason}`;
+}
+
 export function renderReport(file: FindingsFile, options: ReportOptions = {}): string {
+  const confirmed = file.findings.filter((finding) => finding.validator_verdict === "confirmed");
+  const keptInconclusive = file.findings.filter(
+    (finding) => finding.validator_verdict === "inconclusive",
+  );
   const counts = new Map<Severity, number>(SEVERITIES.map((severity) => [severity, 0]));
-  for (const finding of file.findings) {
+  for (const finding of confirmed) {
     counts.set(finding.severity, (counts.get(finding.severity) ?? 0) + 1);
   }
-
   const lines = [
     "# Faultline report",
     "",
@@ -111,7 +124,13 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
   ];
 
   if (file.run.provider !== undefined) {
-    lines.push(`Provider: ${file.run.provider}.`);
+    lines.push(`Provider: ${file.run.provider ?? "none"}.`);
+  }
+  if (file.run.model !== undefined) {
+    lines.push(`Model: ${file.run.model ?? "none"}.`);
+  }
+  if (file.run.commit !== undefined) {
+    lines.push(`Commit: ${file.run.commit ?? "not recorded"}.`);
   }
 
   if (options.changedFiles !== undefined) {
@@ -136,7 +155,13 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
   for (const severity of SEVERITIES) {
     lines.push(`- ${severity}: ${counts.get(severity) ?? 0}`);
   }
-  lines.push("", `${findingCount(file.findings.length)}.`);
+  lines.push("", `${findingCount(confirmed.length)}.`);
+  if (keptInconclusive.length > 0) {
+    const noun = keptInconclusive.length === 1 ? "finding" : "findings";
+    lines.push(
+      `${keptInconclusive.length} inconclusive ${noun} kept at low confidence by --keep-inconclusive.`,
+    );
+  }
   if (options.unvalidatedCandidates !== undefined) {
     lines.push(
       `unvalidated candidates: ${options.unvalidatedCandidates}, not reported as findings`,
@@ -147,19 +172,32 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
   }
   lines.push("", "## Findings", "");
 
-  if (file.findings.length === 0) {
+  if (confirmed.length === 0) {
     lines.push("No confirmed findings.", "");
   }
 
-  for (const [index, finding] of file.findings.entries()) {
+  for (const [index, finding] of confirmed.entries()) {
     lines.push(...renderFinding(finding, index));
   }
-  if (options.disproved !== undefined && options.disproved.length > 0) {
-    lines.push("", "## Disproved or inconclusive candidates", "");
-    for (const item of options.disproved) {
-      lines.push(
-        `- \`${locationLabel(item.candidate.location)}\` (${item.verdict}): ${item.reason}`,
-      );
+  if (keptInconclusive.length > 0) {
+    lines.push("", "## Inconclusive findings", "");
+    for (const [index, finding] of keptInconclusive.entries()) {
+      lines.push(...renderFinding(finding, index));
+    }
+  }
+  const disproved = options.disproved ?? file.disproved ?? [];
+  const inconclusive = options.inconclusive ?? file.inconclusive ?? [];
+  if (disproved.length > 0) {
+    lines.push("", "## Disproved candidates", "");
+    for (const item of disproved) {
+      lines.push(reviewLine(item));
+    }
+    lines.push("");
+  }
+  if (inconclusive.length > 0) {
+    lines.push("", "## Inconclusive candidates", "");
+    for (const item of inconclusive) {
+      lines.push(reviewLine(item, item.kept ? ", kept" : ""));
     }
     lines.push("");
   }

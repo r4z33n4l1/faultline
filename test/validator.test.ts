@@ -2,6 +2,8 @@ import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
+import { executeBench } from "../src/bench/run.js";
+import { benchResultSchema } from "../src/bench/result.js";
 import { runCli } from "../src/cli.js";
 import { executeScan } from "../src/recon/run.js";
 import { executePr } from "../src/pr/run.js";
@@ -11,6 +13,7 @@ import { findingsFileSchema } from "../src/schema/finding.js";
 import { FakeProvider } from "../src/providers/types.js";
 import type { Candidate } from "../src/schema/candidate.js";
 import { findingSchema } from "../src/schema/finding.js";
+import { VALIDATOR_PACK_MAX_CHARS } from "../src/validator/context.js";
 import { validateCandidates } from "../src/validator/index.js";
 
 const roots: string[] = [];
@@ -51,15 +54,28 @@ it("requires two fresh agreeing confirmations and constructs schema-valid findin
   expect(provider.calls[0]?.messages).not.toEqual(provider.calls[1]?.messages);
   expect(provider.calls[1]?.messages).toHaveLength(2);
 });
-it.each(["disproved", "uncertain"])("drops %s with a reason", async (verdict) => {
+it("downgrades an uncited disproof to inconclusive", async () => {
   const { root, candidate } = await fixture();
-  const provider = new FakeProvider(reply(verdict));
+  const provider = new FakeProvider(reply("disproved"));
   const result = await validateCandidates([candidate], { root, provider });
   expect(result.findings).toEqual([]);
-  expect(result.disproved[0]).toMatchObject({
-    verdict: verdict === "disproved" ? "rejected" : "inconclusive",
-    reason: `Review: ${verdict}`,
+  expect(result.disproved).toEqual([]);
+  expect(result.inconclusive[0]).toMatchObject({
+    kept: false,
+    reason: "Disproof omitted a grounded guard. Review: disproved",
   });
+  expect(provider.calls).toHaveLength(1);
+  expect(provider.calls[0]?.messages[0]?.content).toContain(
+    "Without that citation, the verdict cannot be disproved.",
+  );
+});
+it("drops uncertain as inconclusive", async () => {
+  const { root, candidate } = await fixture();
+  const provider = new FakeProvider(reply("uncertain"));
+  const result = await validateCandidates([candidate], { root, provider });
+  expect(result.findings).toEqual([]);
+  expect(result.disproved).toEqual([]);
+  expect(result.inconclusive[0]).toMatchObject({ kept: false, reason: "Review: uncertain" });
   expect(provider.calls).toHaveLength(1);
 });
 it("drops re-verification disagreement", async () => {
@@ -78,7 +94,8 @@ it.each([
   const { root, candidate } = await fixture();
   const result = await validateCandidates([candidate], { root, provider: new FakeProvider(text) });
   expect(result.findings).toEqual([]);
-  expect(result.disproved[0]?.verdict).toBe("inconclusive");
+  expect(result.disproved).toEqual([]);
+  expect(result.inconclusive[0]?.reason).toBe("Malformed reply or ungrounded evidence.");
 });
 it("heuristically promotes medium confidence, drops low confidence, and deduplicates root causes", async () => {
   const { root, candidate } = await fixture();
@@ -92,10 +109,11 @@ it("heuristically promotes medium confidence, drops low confidence, and deduplic
   );
   expect(result.findings).toHaveLength(1);
   expect(result.findings[0]?.disproof_attempts[0]?.role).toBe("heuristic-disproof");
-  expect(result.disproved.map((item) => item.reason)).toEqual([
-    "Duplicate root cause.",
+  expect(result.disproved.map((item) => item.reason)).toEqual(["Duplicate root cause."]);
+  expect(result.inconclusive.map((item) => item.reason)).toEqual([
     "Low confidence; heuristic disproof cannot establish the issue.",
   ]);
+  expect(result.inconclusive[0]?.kept).toBe(false);
 });
 it.each([
   ["authz_idor", "function handler(req) { authorize(req.user); }"],
@@ -106,7 +124,8 @@ it.each([
   const { root, candidate } = await fixture(source);
   const result = await validateCandidates([{ ...candidate, class: klass }], { root });
   expect(result.findings).toEqual([]);
-  expect(result.disproved[0]?.verdict).toBe("rejected");
+  expect(result.inconclusive).toEqual([]);
+  expect(result.disproved[0]?.reason.length).toBeGreaterThan(0);
 });
 it("redacts secrets from source, candidate prose, model summaries and drop reasons", async () => {
   const secret = `ghp_${"aB12".repeat(9)}`;
@@ -183,10 +202,8 @@ it("does not refute a caller-supplied id lookup, a $where argument, or a session
     ],
     { root },
   );
-  expect(result.disproved.map((item) => item.reason)).not.toContain(
-    "Ownership or authorization check is present.",
-  );
-  expect(result.disproved.map((item) => item.verdict)).not.toContain("rejected");
+  expect(result.disproved).toEqual([]);
+  expect(result.inconclusive).toEqual([]);
   expect(result.findings.map((finding) => finding.class).sort()).toEqual([
     "authz_idor",
     "injection",
@@ -278,3 +295,283 @@ it.each(["scan", "pr"] as const)(
     );
   },
 );
+
+function guardReply(line: number) {
+  return JSON.stringify({
+    verdict: "disproved",
+    summary: "A host allowlist guards the outbound call.",
+    evidence: [{ file: "app.ts", line, note: "Allowlist check." }],
+    guard: { file: "app.ts", line, note: "allowedHosts.includes is the guard." },
+  });
+}
+
+it("accepts a disproof that cites a grounded guard", async () => {
+  const { root, candidate } = await fixture(
+    "function handler(req) {\n  if (allowedHosts.includes(req.host)) return;\n  return fetch(req.url);\n}\n",
+  );
+  candidate.class = "ssrf";
+  candidate.location = { file: "app.ts", start_line: 1, end_line: 4 };
+  const provider = new FakeProvider(guardReply(2));
+  const result = await validateCandidates([candidate], { root, provider });
+  expect(result.findings).toEqual([]);
+  expect(result.inconclusive).toEqual([]);
+  expect(result.disproved[0]?.reason).toBe("A host allowlist guards the outbound call.");
+  expect(provider.calls).toHaveLength(1);
+});
+
+it("downgrades a disproof whose guard line is not in the file", async () => {
+  const { root, candidate } = await fixture(
+    "function handler(req) {\n  if (allowedHosts.includes(req.host)) return;\n  return fetch(req.url);\n}\n",
+  );
+  const provider = new FakeProvider(
+    JSON.stringify({
+      verdict: "disproved",
+      summary: "A guard was claimed on a missing line.",
+      evidence: [{ file: "app.ts", line: 1, note: "Handler." }],
+      guard: { file: "app.ts", line: 40, note: "This line is not in the file." },
+    }),
+  );
+  const result = await validateCandidates([candidate], { root, provider });
+  expect(result.disproved).toEqual([]);
+  expect(result.inconclusive[0]?.reason).toContain("Disproof omitted a grounded guard.");
+  expect(result.inconclusive[0]?.kept).toBe(false);
+});
+
+it("keeps inconclusive candidates only when the policy flag is on", async () => {
+  const { root, candidate } = await fixture();
+  const dropped = await validateCandidates([candidate], {
+    root,
+    provider: new FakeProvider(reply("uncertain")),
+  });
+  expect(dropped.findings).toEqual([]);
+  expect(dropped.inconclusive[0]?.kept).toBe(false);
+
+  const provider = new FakeProvider(reply("uncertain"));
+  const kept = await validateCandidates([candidate], {
+    root,
+    provider,
+    keepInconclusive: true,
+  });
+  expect(provider.calls).toHaveLength(1);
+  expect(kept.inconclusive[0]?.kept).toBe(true);
+  expect(kept.findings).toHaveLength(1);
+  expect(kept.findings[0]).toMatchObject({
+    validator_verdict: "inconclusive",
+    confidence: { level: "low" },
+  });
+  expect(kept.findings[0]?.confidence.reason).toContain("--keep-inconclusive");
+  expect(kept.findings[0]?.disproof_attempts[0]?.verdict).toBe("inconclusive");
+
+  const confirming = new FakeProvider(reply());
+  const confirmed = await validateCandidates([candidate], {
+    root,
+    provider: confirming,
+    keepInconclusive: true,
+  });
+  expect(confirming.calls).toHaveLength(2);
+  expect(confirmed.findings[0]?.validator_verdict).toBe("confirmed");
+  expect(confirmed.inconclusive).toEqual([]);
+});
+
+it("sends a bounded redacted context pack with the route chain and local helpers", async () => {
+  const secret = `ghp_${"aB12".repeat(9)}`;
+  const root = await mkdtemp(join(tmpdir(), "faultline-validator-pack-"));
+  roots.push(root);
+  const helperPad = Array.from({ length: 60 }, () => "  const pad = 1;").join("\n");
+  await writeFile(
+    join(root, "app.ts"),
+    [
+      "function requireAuth(req, res, next) { return next(); }",
+      "function loadOwner(id) {",
+      "  return db.user.find(id);",
+      helperPad,
+      '  const marker = "HELPER_TAIL_MARKER";',
+      "  return id;",
+      "}",
+      "function unused() {",
+      `  const token = "${secret}";`,
+      "  return token;",
+      "}",
+      "function getItem(req, res) {",
+      `  const leaked = "${secret}";`,
+      "  const row = loadOwner(req.params.id);",
+      "  return res.json(row);",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  await writeFile(
+    join(root, "routes.ts"),
+    ["app.use(requireAuth);", 'app.get("/items/:id", requireAuth, getItem);', ""].join("\n"),
+  );
+  const appLines = (await readFile(join(root, "app.ts"), "utf8")).split("\n");
+  const getItemLine = appLines.findIndex((line) => line.startsWith("function getItem")) + 1;
+  const candidate: Candidate = {
+    class: "authz_idor",
+    cwe: "CWE-639",
+    severity: "high",
+    confidence: { level: "medium", reason: "Object id without an ownership check." },
+    location: { file: "app.ts", start_line: getItemLine, end_line: getItemLine + 3 },
+    symbol: "getItem",
+    root_cause: "getItem loads a stored object by id",
+    evidence: [{ file: "app.ts", line: getItemLine + 2, note: "loadOwner uses the request id." }],
+  };
+  const provider = new FakeProvider(reply());
+  await validateCandidates([candidate], {
+    root,
+    provider,
+    inventory: {
+      source_files: ["app.ts", "routes.ts"],
+      routes: [{ path: "routes.ts", line: 2, note: "GET /items/:id" }],
+      auth: [
+        { path: "routes.ts", line: 1, note: "requireAuth" },
+        { path: "routes.ts", line: 2, note: "requireAuth" },
+      ],
+    },
+  });
+  const user = provider.calls[0]?.messages[1]?.content ?? "";
+  expect(user).toContain("GET /items/:id");
+  expect(user).toContain("requireAuth");
+  expect(user).toContain("loadOwner");
+  expect(user).toContain("function getItem");
+  expect(user).not.toContain("HELPER_TAIL_MARKER");
+  expect(user).not.toContain("function unused");
+  expect(user).not.toContain(secret);
+  expect(user).toContain("<redacted>");
+  const fenced = user.split("untrusted\n")[1]?.split("\n```")[0] ?? user;
+  expect(fenced.length).toBeLessThanOrEqual(VALIDATOR_PACK_MAX_CHARS);
+});
+
+it("records provider, model, commit, and timestamp on findings, SARIF, and bench results", async () => {
+  const { root, candidate } = await fixture(
+    'app.get("/items/:id", (req, res) => { const item = prisma.item.findUnique({ where: { id: req.params.id } }); res.json(item); });',
+  );
+  candidate.class = "authz_idor";
+  candidate.cwe = "CWE-639";
+  candidate.symbol = "app.get";
+  const provider = new FakeProvider((input) => {
+    if (input.jsonSchema !== undefined) return reply();
+    if (input.messages[0]?.content.includes("authz_idor"))
+      return JSON.stringify({ candidates: [candidate] });
+    return "";
+  });
+  provider.model = "stub-model";
+  const outDir = join(root, "out");
+  await executeScan({ target: root, cwd: root, outDir, provider });
+  const file = findingsFileSchema.parse(
+    JSON.parse(await readFile(join(outDir, "findings.json"), "utf8")) as unknown,
+  );
+  expect(file.run.provider).toBe("fake");
+  expect(file.run.model).toBe("stub-model");
+  expect(file.run.commit).toMatch(/^[0-9a-f]{40}$/);
+  expect(file.run.started_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  expect(file.disproved).toEqual([]);
+  expect(file.inconclusive).toEqual([]);
+  const sarif = sarifLogSchema.parse(
+    JSON.parse(await readFile(join(outDir, "findings.sarif"), "utf8")) as unknown,
+  );
+  expect(sarif.runs[0].properties).toEqual({
+    "faultline/provider": "fake",
+    "faultline/model": "stub-model",
+    "faultline/commit": file.run.commit,
+    "faultline/timestamp": file.run.started_at,
+  });
+  const report = await readFile(join(outDir, "report.md"), "utf8");
+  expect(report).toContain("Provider: fake.");
+  expect(report).toContain("Model: stub-model.");
+  expect(report).toContain(`Commit: ${file.run.commit}.`);
+  expect(report).not.toContain("## Disproved or inconclusive");
+
+  await writeFile(
+    join(root, "truth.json"),
+    `${JSON.stringify({
+      schema_version: "1",
+      entries: [
+        {
+          id: "open",
+          class: "authz_idor",
+          cwe: "CWE-639",
+          file: "app.ts",
+          start_line: 1,
+          end_line: 1,
+          vulnerable: true,
+        },
+      ],
+    })}\n`,
+  );
+  const bench = await executeBench({
+    target: root,
+    cwd: root,
+    outDir: join(root, "bench"),
+    stage: "findings",
+    truthPath: join(root, "truth.json"),
+    model: null,
+    provider,
+  });
+  const recorded = benchResultSchema.parse(bench);
+  expect(recorded.run.provider).toBe("fake");
+  expect(recorded.run.model).toBe("stub-model");
+  expect(recorded.run.commit).toBe(file.run.commit);
+  expect(recorded.run.started_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+});
+
+it("splits disproved and inconclusive in the report and keeps them out of SARIF", async () => {
+  const { root, candidate } = await fixture(
+    'app.get("/items/:id", (req, res) => { const item = prisma.item.findUnique({ where: { id: req.params.id } }); res.json(item); });',
+  );
+  candidate.class = "authz_idor";
+  candidate.cwe = "CWE-639";
+  candidate.symbol = "app.get";
+  const provider = new FakeProvider((input) => {
+    if (input.jsonSchema !== undefined) return reply("uncertain");
+    if (input.messages[0]?.content.includes("authz_idor"))
+      return JSON.stringify({ candidates: [candidate] });
+    return "";
+  });
+  const dropped = join(root, "dropped");
+  expect(
+    await runCli(["scan", root, "--out", dropped], {
+      cwd: root,
+      env: {},
+      provider,
+      stdout() {},
+      stderr() {},
+    }),
+  ).toBe(0);
+  const droppedFile = findingsFileSchema.parse(
+    JSON.parse(await readFile(join(dropped, "findings.json"), "utf8")) as unknown,
+  );
+  expect(droppedFile.findings).toEqual([]);
+  expect(droppedFile.inconclusive?.length).toBeGreaterThan(0);
+  expect(droppedFile.inconclusive?.[0]?.kept).toBe(false);
+  const droppedReport = await readFile(join(dropped, "report.md"), "utf8");
+  expect(droppedReport).toContain("## Inconclusive candidates");
+  expect(droppedReport).not.toContain("## Disproved candidates");
+  expect(droppedReport).not.toContain("## Disproved or inconclusive");
+
+  const keptDir = join(root, "kept");
+  expect(
+    await runCli(["scan", root, "--out", keptDir, "--keep-inconclusive"], {
+      cwd: root,
+      env: {},
+      provider,
+      stdout() {},
+      stderr() {},
+    }),
+  ).toBe(0);
+  const keptFile = findingsFileSchema.parse(
+    JSON.parse(await readFile(join(keptDir, "findings.json"), "utf8")) as unknown,
+  );
+  expect(keptFile.findings).toHaveLength(1);
+  expect(keptFile.findings[0]?.validator_verdict).toBe("inconclusive");
+  expect(keptFile.findings[0]?.confidence.level).toBe("low");
+  expect(keptFile.inconclusive?.[0]?.kept).toBe(true);
+  const keptReport = await readFile(join(keptDir, "report.md"), "utf8");
+  expect(keptReport).toContain("inconclusive finding kept at low confidence");
+  expect(keptReport).toContain("## Inconclusive candidates");
+  expect(keptReport).toContain(", kept)");
+  const sarif = sarifLogSchema.parse(
+    JSON.parse(await readFile(join(keptDir, "findings.sarif"), "utf8")) as unknown,
+  );
+  expect(sarif.runs[0].results).toEqual([]);
+});
