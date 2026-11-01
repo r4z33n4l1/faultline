@@ -9,6 +9,8 @@ export interface HunterContext {
   target: string;
   inventory: Inventory;
   provider?: ModelProvider;
+  /** Sites each hunter reviews. Defaults to the shared site budget. */
+  maxSites?: number;
   markCoverage(
     unitId: string,
     status: Extract<CoverageStatus, "hunted" | "skipped">,

@@ -1,5 +1,7 @@
+import { resolveMaxSites, riskRank } from "./budget.js";
 import { fenceData } from "../recon/architecture.js";
 import { fileCoverageId, routeCoverageId } from "../recon/coverage.js";
+import type { ResolvedRouteHandler } from "../recon/handlers.js";
 import type { Inventory, InventoryMatch } from "../recon/inventory.js";
 import { parseCandidateList, type Candidate } from "../schema/candidate.js";
 import { groundCandidates } from "./ground.js";
@@ -35,7 +37,7 @@ export const FILE_SKIPPED_REASON = "no injection sink selected in this file";
 export const SKIP_NO_SINK = "no injection sink in this handler";
 export const SKIP_NO_TAINT = "request input does not reach an injection sink";
 export const SKIP_PARAMETERIZED = "query uses bound parameters";
-export const SKIP_CAP = "injection sink cap reached";
+export const SKIP_CAP = "injection site budget reached";
 export const SKIP_UNREADABLE = "handler source could not be read";
 
 const INPUT_KINDS = ["params", "query", "body", "headers", "argument"] as const;
@@ -75,10 +77,14 @@ interface RouteWindow {
   untainted: boolean;
 }
 
+export type InjectionRisk = "tainted" | "dynamic" | "constant";
+
 interface RawSite {
   file: string;
   route?: string;
   routeLine?: number;
+  routeFile?: string;
+  risk: InjectionRisk;
   functionName?: string;
   line: number;
   callEndLine: number;
@@ -146,9 +152,10 @@ const REQUEST_RE = /\b(?:req|request)\??\.(params|query|body|headers)\b/g;
 const WHOLE_REQUEST = /^(?:req|request)\??\.(?:body|query|params|headers)$/;
 const SQL_IDENT = /(?<![\w$])(?:query|execute)\s*\(/g;
 const NOSQL_CALL =
-  /\.(?:find|findOne|findOneAndUpdate|updateOne|updateMany|deleteOne|deleteMany|aggregate|countDocuments)\s*\(/g;
+  /\.(?:find|findOne|findOneAndUpdate|updateOne|updateMany|deleteOne|deleteMany|aggregate|countDocuments|update)\s*\(/g;
 const OPERATOR_RE =
-  /\$(?:where|gt|gte|lt|lte|ne|in|nin|regex|or|and|not|nor|expr|exists|elemMatch|jsonSchema|size|all)\b/;
+  /\$(?:where|gt|gte|lt|lte|ne|in|nin|regex|or|and|not|nor|expr|exists|elemMatch|jsonSchema|size|all|set)\b/;
+const COERCION_NAME = /^(?:String|Number|Boolean|parseInt|parseFloat)$/;
 
 function countChar(text: string, char: string): number {
   let count = 0;
@@ -475,7 +482,7 @@ function absorb(line: string, lineNo: number, bindings: Map<string, Binding>): v
     rememberBinding(destructure[1], rhs, lineNo, bindings, true);
     return;
   }
-  const assign = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+)/.exec(line);
+  const assign = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)(?:\s*:[^=]+)?\s*=\s*([^;\n]+)/.exec(line);
   if (assign?.[1] !== undefined && assign[2] !== undefined) {
     rememberBinding(assign[1], assign[2].trim(), lineNo, bindings, false);
   }
@@ -569,6 +576,19 @@ function sqlTextDynamic(first: string, bindings: ReadonlyMap<string, Binding>): 
   return binding?.dynamic === true || binding?.tainted === true || binding?.sanitized === true;
 }
 
+function isConstantSql(callInner: string, bindings: ReadonlyMap<string, Binding>): boolean {
+  const first = splitArgs(callInner)[0]?.trim() ?? "";
+  const source = sqlSource(first, bindings).trim();
+  if (!/^["'`][^"'`]*["'`]$/.test(source)) {
+    return false;
+  }
+  if (/\$\{/.test(source) || /['"`]\s*\+|\+\s*['"`]/.test(source)) {
+    return false;
+  }
+  const binding = namedBinding(first, bindings);
+  return binding?.tainted !== true && binding?.dynamic !== true && binding?.sanitized !== true;
+}
+
 function isParameterized(
   callInner: string,
   first: string,
@@ -640,19 +660,58 @@ function classifySql(
   return "untainted";
 }
 
+function isCoercionExpr(expr: string): boolean {
+  return /^(?:String|Number|Boolean|parseInt|parseFloat)\s*\(/.test(expr.trim());
+}
+
+function stripCoercions(expr: string): string {
+  let result = "";
+  for (let index = 0; index < expr.length; index += 1) {
+    const match = /^([A-Za-z_$][\w$]*)\s*\(/.exec(expr.slice(index));
+    const name = match?.[1];
+    const before = index === 0 ? "" : (expr[index - 1] ?? "");
+    if (
+      match?.[0] !== undefined &&
+      name !== undefined &&
+      COERCION_NAME.test(name) &&
+      !/[\w$]/.test(before)
+    ) {
+      const paren = index + match[0].length - 1;
+      const extracted = extractCall(expr, paren);
+      result += '""';
+      index = extracted.endIndex;
+      continue;
+    }
+    result += expr[index] ?? "";
+  }
+  return result;
+}
+
+function nosqlBindings(bindings: ReadonlyMap<string, Binding>): Map<string, Binding> {
+  const active = new Map<string, Binding>();
+  for (const [name, binding] of bindings) {
+    if (!isCoercionExpr(binding.expr)) {
+      active.set(name, binding);
+    }
+  }
+  return active;
+}
+
 function classifyNosql(callInner: string, bindings: ReadonlyMap<string, Binding>): Action {
-  const first = splitArgs(callInner)[0]?.trim() ?? "";
-  const whole = isWholeObjectExpr(first, bindings);
-  const spread = spreadRequest(first, bindings);
+  const active = nosqlBindings(bindings);
+  const visible = stripCoercions(callInner);
+  const first = splitArgs(visible)[0]?.trim() ?? "";
+  const whole = isWholeObjectExpr(first, active);
+  const spread = spreadRequest(first, active);
   const operators = OPERATOR_RE.test(callInner);
   if (!whole && !spread && !operators) {
     return "ignore";
   }
-  const tainted = dangerousTaint(callInner, bindings) || whole || spread;
-  if (!tainted && !sanitizedReach(callInner, bindings)) {
+  const tainted = dangerousTaint(visible, active) || whole || spread;
+  if (!tainted && !sanitizedReach(visible, active)) {
     return "ignore";
   }
-  if (tainted && !isAllowlistExpr(callInner)) {
+  if (tainted && !isAllowlistExpr(visible)) {
     return "vulnerable";
   }
   return "mitigated";
@@ -896,15 +955,30 @@ function analyzeBlock(
       result.parameterized = true;
       continue;
     }
-    if (action === "untainted") {
+    const signature = `${stripped[start - 1] ?? ""}\n${stripped[start] ?? ""}`;
+    const requestHandler = route !== undefined || /\(\s*(?:req|request)\b/.test(signature);
+    let risk: InjectionRisk | undefined;
+    if (action === "vulnerable" || action === "mitigated") {
+      risk = "tainted";
+    } else if (action === "untainted" && requestHandler) {
+      result.untainted = true;
+      risk = "dynamic";
+    } else if (action === "untainted") {
       result.untainted = true;
       continue;
+    } else if (
+      action === "ignore" &&
+      requestHandler &&
+      hit.rule === "sql" &&
+      isConstantSql(callInner, bindings)
+    ) {
+      risk = "constant";
     }
-    if (action === "ignore") {
+    if (risk === undefined) {
       continue;
     }
     const inputs = inputsFor(callInner, bindings);
-    if (inputs.length === 0) {
+    if (risk === "tainted" && inputs.length === 0) {
       continue;
     }
     const callEndLine = Math.min(end, lineOf(block, extracted.endIndex, start));
@@ -922,10 +996,12 @@ function analyzeBlock(
       inputs,
       inputLine: inputLineFor(callInner, bindings, sinkLine),
       mitigated: action === "mitigated",
+      risk,
     };
     if (route !== undefined) {
       site.route = route.route;
       site.routeLine = route.line;
+      site.routeFile = file;
     }
     if (functionName !== undefined) {
       site.functionName = functionName;
@@ -959,10 +1035,12 @@ function analyzeBlock(
       inputs: inputs.length > 0 ? inputs : ["argument"],
       inputLine: inputLineFor(expr, bindings, lineNo),
       mitigated: false,
+      risk: "tainted",
     };
     if (route !== undefined) {
       site.route = route.route;
       site.routeLine = route.line;
+      site.routeFile = file;
     }
     if (functionName !== undefined) {
       site.functionName = functionName;
@@ -1112,7 +1190,34 @@ function skipped(route: InventoryMatch, reason: string): InjectionDecision {
   };
 }
 
-export async function planInjection(root: string, inventory: Inventory): Promise<InjectionPlan> {
+function attachResolvedRoutes(
+  sites: readonly RawSite[],
+  handlers: readonly ResolvedRouteHandler[],
+): void {
+  for (const site of sites) {
+    if (site.route !== undefined) {
+      continue;
+    }
+    const match = handlers.find(
+      (handler) =>
+        handler.handlerFile === site.file &&
+        site.line >= handler.handlerLine &&
+        site.line <= handler.handlerEndLine,
+    );
+    if (match === undefined) {
+      continue;
+    }
+    site.route = match.route;
+    site.routeLine = match.routeLine;
+    site.routeFile = match.routeFile;
+  }
+}
+
+export async function planInjection(
+  root: string,
+  inventory: Inventory,
+  maxSites = resolveMaxSites(undefined),
+): Promise<InjectionPlan> {
   const allowed = new Set(inventory.source_files);
   const files = new Map<string, string>();
   const raw: RawSite[] = [];
@@ -1141,8 +1246,9 @@ export async function planInjection(root: string, inventory: Inventory): Promise
     }
   }
 
+  attachResolvedRoutes(raw, inventory.handlers);
   raw.sort((left, right) => {
-    const rank = (site: RawSite): number => {
+    const legacy = (site: RawSite): number => {
       const call = site.symbol !== "$where";
       if (site.mitigated) {
         return 4;
@@ -1156,7 +1262,8 @@ export async function planInjection(root: string, inventory: Inventory): Promise
       return site.route !== undefined ? 2 : 3;
     };
     return (
-      rank(left) - rank(right) ||
+      riskRank(right.risk) - riskRank(left.risk) ||
+      legacy(left) - legacy(right) ||
       compareString(left.file, right.file) ||
       left.line - right.line ||
       compareString(left.symbol, right.symbol) ||
@@ -1165,7 +1272,7 @@ export async function planInjection(root: string, inventory: Inventory): Promise
   });
   const sites: InjectionSite[] = raw.map((site, index) => ({
     ...site,
-    overCap: index >= HUNTER_SITE_CAP,
+    overCap: index >= maxSites,
   }));
 
   const decisions: InjectionDecision[] = [];
@@ -1178,7 +1285,9 @@ export async function planInjection(root: string, inventory: Inventory): Promise
     }
     const owned = sites.filter(
       (site) =>
-        site.file === route.path && site.route === route.note && site.routeLine === route.line,
+        (site.routeFile ?? site.file) === route.path &&
+        site.route === route.note &&
+        site.routeLine === route.line,
     );
     if (owned.some((site) => !site.overCap)) {
       decisions.push({
@@ -1379,9 +1488,9 @@ export const injectionHunter: Hunter = {
   name: "injection",
   class: "injection",
   async run(ctx) {
-    const plan = await planInjection(ctx.root, ctx.inventory);
+    const plan = await planInjection(ctx.root, ctx.inventory, resolveMaxSites(ctx.maxSites));
     markPlan(ctx, plan);
-    const reviewed = plan.sites.filter((site) => !site.overCap);
+    const reviewed = plan.sites.filter((site) => !site.overCap && site.risk === "tainted");
     if (ctx.provider === undefined) {
       const heuristic = reviewed
         .filter((site) => !site.mitigated)

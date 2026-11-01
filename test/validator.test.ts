@@ -442,6 +442,58 @@ it("sends a bounded redacted context pack with the route chain and local helpers
   expect(fenced.length).toBeLessThanOrEqual(VALIDATOR_PACK_MAX_CHARS);
 });
 
+it("attaches a route registration through the resolved handler map", async () => {
+  const root = await mkdtemp(join(tmpdir(), "faultline-validator-handler-"));
+  roots.push(root);
+  await writeFile(
+    join(root, "search.ts"),
+    [
+      "export function search() {",
+      "  return (req, res) => {",
+      "    return db.query(`SELECT ${req.query.q}`);",
+      "  };",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  await writeFile(join(root, "server.ts"), 'app.get("/rest/search", search());\n');
+  const candidate: Candidate = {
+    class: "injection",
+    cwe: "CWE-89",
+    severity: "high",
+    confidence: { level: "low", reason: "Request input reaches a query." },
+    location: { file: "search.ts", start_line: 3, end_line: 3 },
+    symbol: "query",
+    root_cause: "search passes request query input into a SQL query",
+    evidence: [{ file: "search.ts", line: 3, note: "SQL sink." }],
+  };
+  const provider = new FakeProvider(reply());
+  await validateCandidates([candidate], {
+    root,
+    provider,
+    inventory: {
+      source_files: ["search.ts", "server.ts"],
+      routes: [{ path: "server.ts", line: 1, note: "GET /rest/search" }],
+      auth: [],
+      handlers: [
+        {
+          routeFile: "server.ts",
+          routeLine: 1,
+          route: "GET /rest/search",
+          mountedPath: "/rest/search",
+          handlerFile: "search.ts",
+          handlerLine: 2,
+          handlerEndLine: 4,
+          symbol: "search",
+        },
+      ],
+    },
+  });
+  const user = provider.calls[0]?.messages[1]?.content ?? "";
+  expect(user).toContain("GET /rest/search");
+  expect(user).toContain("search()");
+});
+
 it("records provider, model, commit, and timestamp on findings, SARIF, and bench results", async () => {
   const { root, candidate } = await fixture(
     'app.get("/items/:id", (req, res) => { const item = prisma.item.findUnique({ where: { id: req.params.id } }); res.json(item); });',

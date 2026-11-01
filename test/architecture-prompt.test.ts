@@ -17,6 +17,7 @@ function inventoryWith(note: string): Inventory {
     entrypoints: [],
     source_files: ["src/app.ts"],
     routes: [{ path: "src/app.ts", line: 2, note }],
+    handlers: [],
     auth: [],
     data_stores: [],
     outbound_http: [],

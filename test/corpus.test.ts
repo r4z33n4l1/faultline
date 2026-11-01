@@ -303,11 +303,12 @@ it("renders the corpus table with the heuristic model label", () => {
   });
   const markdown = renderCorpusResultsMarkdown([file]);
   expect(markdown).toContain("pre-validator heuristic");
-  expect(markdown).toContain("| dvna | faultline | 0.0.0 | none, heuristic | candidates |");
   expect(markdown).toContain(
-    "| dvna | faultline | 0.0.0 | none, heuristic | candidates | 0123456789ab | overall | 1 | 0 | 0 | 1 | 1.000 | 1.000 | 1.000 |",
+    "| dvna   | faultline | 0.0.0   | none, heuristic | candidates | 0123456789ab | authz_idor | 0   | 0   | 0   | 0   | n/a       | n/a    | n/a   |",
   );
-  expect(markdown).toContain("| authz_idor | 0 | 0 | 0 | 0 | n/a | n/a | n/a |");
+  expect(markdown).toContain(
+    "| dvna   | faultline | 0.0.0   | none, heuristic | candidates | 0123456789ab | overall    | 1   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |",
+  );
 });
 
 it("bench --corpus uses a local cache and does not need a network", async () => {

@@ -1,5 +1,7 @@
+import { resolveMaxSites } from "./budget.js";
 import { fenceData } from "../recon/architecture.js";
 import { fileCoverageId, routeCoverageId } from "../recon/coverage.js";
+import type { ResolvedRouteHandler } from "../recon/handlers.js";
 import type { Inventory, InventoryMatch } from "../recon/inventory.js";
 import { parseCandidateList, type Candidate } from "../schema/candidate.js";
 import { groundCandidates } from "./ground.js";
@@ -35,7 +37,7 @@ export const FILE_SKIPPED_REASON = "no ssrf sink selected in this file";
 export const SKIP_NO_SINK = "no ssrf sink in this handler";
 export const SKIP_NO_TAINT = "request input does not reach an outbound request";
 export const SKIP_FIXED_BASE = "fixed base URL with an encoded path segment";
-export const SKIP_CAP = "ssrf sink cap reached";
+export const SKIP_CAP = "ssrf site budget reached";
 export const SKIP_UNREADABLE = "handler source could not be read";
 
 export const NO_PRIVATE_IP_NOTE =
@@ -101,6 +103,7 @@ interface RawSite {
   file: string;
   route?: string;
   routeLine?: number;
+  routeFile?: string;
   functionName?: string;
   line: number;
   callEndLine: number;
@@ -1026,7 +1029,7 @@ function absorb(
     remember(destructure[1], destructure[2].trim(), lineNo, bindings, true, paramNames);
     return;
   }
-  const assign = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+)/.exec(line);
+  const assign = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)(?:\s*:[^=]+)?\s*=\s*([^;\n]+)/.exec(line);
   if (assign?.[1] === undefined || assign[2] === undefined) {
     return;
   }
@@ -1518,6 +1521,7 @@ function analyzeBlock(
     if (route !== undefined) {
       site.route = route.route;
       site.routeLine = route.line;
+      site.routeFile = file;
     }
     if (functionName !== undefined) {
       site.functionName = functionName;
@@ -1671,7 +1675,34 @@ function skipped(route: InventoryMatch, reason: string): SsrfDecision {
   };
 }
 
-export async function planSsrf(root: string, inventory: Inventory): Promise<SsrfPlan> {
+function attachResolvedRoutes(
+  sites: readonly RawSite[],
+  handlers: readonly ResolvedRouteHandler[],
+): void {
+  for (const site of sites) {
+    if (site.route !== undefined) {
+      continue;
+    }
+    const match = handlers.find(
+      (handler) =>
+        handler.handlerFile === site.file &&
+        site.line >= handler.handlerLine &&
+        site.line <= handler.handlerEndLine,
+    );
+    if (match === undefined) {
+      continue;
+    }
+    site.route = match.route;
+    site.routeLine = match.routeLine;
+    site.routeFile = match.routeFile;
+  }
+}
+
+export async function planSsrf(
+  root: string,
+  inventory: Inventory,
+  maxSites = resolveMaxSites(undefined),
+): Promise<SsrfPlan> {
   const allowed = new Set(inventory.source_files);
   const files = new Map<string, string>();
   const raw: RawSite[] = [];
@@ -1697,15 +1728,17 @@ export async function planSsrf(root: string, inventory: Inventory): Promise<Ssrf
       windows.set(`${window.path}:${window.line}:${window.route}`, window);
     }
   }
+  attachResolvedRoutes(raw, inventory.handlers);
   raw.sort(
     (left, right) =>
+      Number(right.hostControlled) - Number(left.hostControlled) ||
       compareString(left.file, right.file) ||
       left.line - right.line ||
       compareString(left.symbol, right.symbol),
   );
   const sites: SsrfSite[] = raw.map((site, index) => ({
     ...site,
-    overCap: index >= HUNTER_SITE_CAP,
+    overCap: index >= maxSites,
   }));
   const decisions: SsrfDecision[] = [];
   for (const route of inventory.routes) {
@@ -1717,7 +1750,9 @@ export async function planSsrf(root: string, inventory: Inventory): Promise<Ssrf
     }
     const owned = sites.filter(
       (site) =>
-        site.file === route.path && site.route === route.note && site.routeLine === route.line,
+        (site.routeFile ?? site.file) === route.path &&
+        site.route === route.note &&
+        site.routeLine === route.line,
     );
     if (owned.some((site) => !site.overCap)) {
       decisions.push({
@@ -1869,7 +1904,7 @@ export const ssrfHunter: Hunter = {
   name: "ssrf",
   class: "ssrf",
   async run(ctx) {
-    const plan = await planSsrf(ctx.root, ctx.inventory);
+    const plan = await planSsrf(ctx.root, ctx.inventory, resolveMaxSites(ctx.maxSites));
     markPlan(ctx, plan);
     const reviewed = plan.sites.filter((site) => !site.overCap);
     if (ctx.provider === undefined) {

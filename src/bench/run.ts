@@ -33,6 +33,8 @@ export interface BenchRequest {
   /** Promote inconclusive candidates when stage is findings. Default off. */
   keepInconclusive?: boolean;
   inventory?: CollectOptions;
+  /** Per-hunter site budget. Defaults to the shared cap when omitted. */
+  maxSites?: number;
   startedAt?: Date;
   runId?: string;
 }
@@ -234,6 +236,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
     validate: boolean;
     keepInconclusive?: boolean;
     inventory?: CollectOptions;
+    maxSites?: number;
     startedAt?: Date;
     runId?: string;
   } = {
@@ -254,6 +257,9 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
   }
   if (request.inventory !== undefined) {
     scan.inventory = request.inventory;
+  }
+  if (request.maxSites !== undefined) {
+    scan.maxSites = request.maxSites;
   }
   await executeScan(scan);
   const stageName = request.stage === "candidates" ? "candidates.json" : "findings.json";

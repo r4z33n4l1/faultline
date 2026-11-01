@@ -90,16 +90,27 @@ function formatRate(value: number | null): string {
   return value.toFixed(3);
 }
 
-function row(cells: readonly string[]): string {
-  return `| ${cells.join(" | ")} |`;
+/** Prettier's markdown table: one space of padding, columns as wide as their longest cell. */
+function markdownTable(header: readonly string[], rows: readonly (readonly string[])[]): string[] {
+  const width = header.map((_, column) =>
+    Math.max(3, header[column]?.length ?? 0, ...rows.map((row) => (row[column] ?? "").length)),
+  );
+  const format = (cells: readonly string[], dashes: boolean): string => {
+    const body = width.map((size, column) => {
+      const text = dashes ? "-".repeat(size) : (cells[column] ?? "").padEnd(size);
+      return ` ${text} `;
+    });
+    return `|${body.join("|")}|`;
+  };
+  return [format(header, false), format(header, true), ...rows.map((row) => format(row, false))];
 }
 
 function confusionCells(
   file: CorpusResultsFile,
   appName: string,
   item: CorpusResultsFile["apps"][number]["overall"],
-): string {
-  return row([
+): string[] {
+  return [
     appName,
     file.tool.name,
     file.tool.version,
@@ -114,7 +125,7 @@ function confusionCells(
     formatRate(item.precision),
     formatRate(item.recall),
     formatRate(item.score),
-  ]);
+  ];
 }
 
 /**
@@ -135,52 +146,38 @@ export function renderCorpusResultsMarkdown(files: readonly CorpusResultsFile[])
     "",
     "Raw scanner output is not committed. It can quote corpus source.",
     "",
-    row([
-      "corpus",
-      "tool",
-      "version",
-      "model",
-      "stage",
-      "commit",
-      "class",
-      "TP",
-      "FP",
-      "FN",
-      "TN",
-      "precision",
-      "recall",
-      "score",
-    ]),
-    row([
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-      "---",
-    ]),
   ];
   const ordered = [...files].sort(
     (left, right) =>
       left.tool.name.localeCompare(right.tool.name) || left.stage.localeCompare(right.stage),
   );
+  const header = [
+    "corpus",
+    "tool",
+    "version",
+    "model",
+    "stage",
+    "commit",
+    "class",
+    "TP",
+    "FP",
+    "FN",
+    "TN",
+    "precision",
+    "recall",
+    "score",
+  ];
+  const table: string[][] = [];
   for (const file of ordered) {
     const apps = [...file.apps].sort((left, right) => left.name.localeCompare(right.name));
     for (const app of apps) {
       for (const item of app.classes) {
-        lines.push(confusionCells(file, app.name, item));
+        table.push(confusionCells(file, app.name, item));
       }
-      lines.push(confusionCells(file, app.name, app.overall));
+      table.push(confusionCells(file, app.name, app.overall));
     }
   }
+  lines.push(...markdownTable(header, table));
   lines.push("", "## Runs", "", "Commit prefixes in the table match these files.", "");
   for (const file of ordered) {
     const truncated = file.apps
@@ -195,7 +192,6 @@ export function renderCorpusResultsMarkdown(files: readonly CorpusResultsFile[])
       `- \`${corpusResultsFilename(file.date, file.commit, file.tool.name, file.stage)}\` — ${file.tool.name} ${file.tool.version}, stage ${file.stage}, commit \`${file.commit}\`.${rules}${cap}`,
     );
   }
-  lines.push("");
   return `${lines.join("\n")}\n`;
 }
 

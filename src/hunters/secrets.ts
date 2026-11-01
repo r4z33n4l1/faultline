@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { overCapFlags, resolveMaxSites } from "./budget.js";
 import { fenceData } from "../recon/architecture.js";
 import { fileCoverageId, routeCoverageId } from "../recon/coverage.js";
 import type { Inventory } from "../recon/inventory.js";
@@ -30,7 +31,7 @@ export {
 
 export const FILE_HUNTED_REASON = "secrets hunter reviewed a secret in this file";
 export const FILE_SKIPPED_REASON = "no secret selected in this file";
-export const SKIP_CAP = "secrets site cap reached";
+export const SKIP_CAP = "secrets site budget reached";
 export const SKIP_UNREADABLE = "secret source could not be read";
 export const SKIP_TEST = "test path skipped unless that directory is the scan root";
 export const SKIP_ROUTE = "secrets hunter reviews source and config files, not routes";
@@ -155,6 +156,9 @@ const PAIR =
   /^(?:["']([A-Za-z_$][\w$.-]*)["']|([A-Za-z_$][\w$.-]*))\s*(?::=|:(?!=)|=(?!=))\s*(["'`])(.*)\3\s*,?\s*(?:\/\/.*|#.*)?$/;
 
 const PLAIN = /^([A-Za-z_][\w.-]*)\s*:\s*([^#"'\s][^#]*?)\s*(?:#.*)?$/;
+
+const FIELD =
+  /^(?:(?:public|private|protected|readonly|static|declare|override|abstract)\s+)+([A-Za-z_$][\w$]*)\s*=\s*(["'`])(.*)\2\s*;?\s*$/;
 
 const LOGGER_CALL =
   /\b(console|logger|log|logging)\.(log|info|warn|warning|error|debug|trace|fatal)\s*\((.*)\)/;
@@ -400,6 +404,16 @@ function nearStore(lines: readonly string[], index: number): boolean {
   return STORE_NEAR.test(lines.slice(start, end).join("\n"));
 }
 
+function isMixedSecretLiteral(value: string): boolean {
+  if (value.length < 12 || value.length > 200 || isPlaceholder(value)) {
+    return false;
+  }
+  if (/[\s./\\-]/.test(value)) {
+    return false;
+  }
+  return /[a-z]/.test(value) && /[A-Z]/.test(value) && !/[0-9]/.test(value);
+}
+
 function isHighEntropy(value: string): boolean {
   if (value.length < 16 || value.length > 200) {
     return false;
@@ -457,6 +471,10 @@ function assignmentOnLine(line: string): Assignment | undefined {
   const plain = PLAIN.exec(trimmed);
   if (plain?.[1] !== undefined && plain[2] !== undefined) {
     return { name: plain[1], value: plain[2].trim() };
+  }
+  const field = FIELD.exec(trimmed);
+  if (field?.[1] !== undefined && field[3] !== undefined) {
+    return { name: field[1], value: field[3] };
   }
   return undefined;
 }
@@ -742,7 +760,10 @@ function scanText(text: string): { hits: RawHit[]; redactions: string[]; observe
       });
       continue;
     }
-    if (isSensitiveName(found.name) && isHighEntropy(found.value)) {
+    if (
+      isSensitiveName(found.name) &&
+      (isHighEntropy(found.value) || isMixedSecretLiteral(found.value))
+    ) {
       pushHit(hits, taken, {
         line: index + 1,
         hitEndLine: index + 1,
@@ -887,7 +908,11 @@ function envSite(file: string): SecretSite {
   };
 }
 
-async function analyze(root: string, inventory: Inventory): Promise<Analyzed> {
+async function analyze(
+  root: string,
+  inventory: Inventory,
+  maxSites = resolveMaxSites(undefined),
+): Promise<Analyzed> {
   const allowed = new Set(
     [...inventory.source_files, ...inventory.config_files].filter((rel) => scannable(rel)),
   );
@@ -918,9 +943,18 @@ async function analyze(root: string, inventory: Inventory): Promise<Analyzed> {
       left.hit.line - right.hit.line ||
       compareString(left.hit.kind, right.hit.kind),
   );
+  const capped = overCapFlags(
+    pending,
+    maxSites,
+    (item) => (item.hit.knownFormat ? 2 : 1),
+    (left, right) =>
+      compareString(left.file, right.file) ||
+      left.hit.line - right.hit.line ||
+      compareString(left.hit.kind, right.hit.kind),
+  );
   const sites = pending.map((item, index) => {
     const lines = (files.get(item.file) ?? "").split("\n");
-    return { ...toSite(item.file, lines, item.hit), overCap: index >= HUNTER_SITE_CAP };
+    return { ...toSite(item.file, lines, item.hit), overCap: capped[index] === true };
   });
 
   const envSites = inventory.env_files
@@ -1101,7 +1135,11 @@ export const secretsHunter: Hunter = {
   name: "secrets",
   class: "secrets",
   async run(ctx) {
-    const { plan, observed } = await analyze(ctx.root, ctx.inventory);
+    const { plan, observed } = await analyze(
+      ctx.root,
+      ctx.inventory,
+      resolveMaxSites(ctx.maxSites),
+    );
     markPlan(ctx, plan);
     const envCandidates = plan.envSites
       .map((site) => heuristicCandidate(site))

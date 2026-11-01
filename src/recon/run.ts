@@ -27,6 +27,8 @@ export interface ScanRequest {
   keepInconclusive?: boolean;
   /** Include and exclude globs, and file or byte caps. Defaults apply when omitted. */
   inventory?: CollectOptions;
+  /** Per-hunter site budget. Defaults to the shared cap when omitted. */
+  maxSites?: number;
   startedAt?: Date;
   runId?: string;
 }
@@ -60,6 +62,7 @@ export async function executeScan(request: ScanRequest): Promise<void> {
     root: abs,
     target: request.target,
     inventory,
+    ...(request.maxSites === undefined ? {} : { maxSites: request.maxSites }),
     markCoverage(unitId, status, reason) {
       marks.set(unitId, { status, reason });
     },

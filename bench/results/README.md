@@ -12,6 +12,26 @@ Raw scanner output is not committed. It can quote corpus source.
 
 | corpus     | tool      | version | model           | stage      | commit       | class      | TP  | FP  | FN  | TN  | precision | recall | score |
 | ---------- | --------- | ------- | --------------- | ---------- | ------------ | ---------- | --- | --- | --- | --- | --------- | ------ | ----- |
+| dvna       | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | authz_idor | 2   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |
+| dvna       | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | injection  | 3   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |
+| dvna       | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | secrets    | 2   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |
+| dvna       | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | ssrf       | 0   | 0   | 0   | 0   | n/a       | n/a    | n/a   |
+| dvna       | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | overall    | 7   | 0   | 0   | 3   | 1.000     | 1.000  | 1.000 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | authz_idor | 1   | 0   | 4   | 2   | 1.000     | 0.200  | 0.200 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | injection  | 5   | 0   | 1   | 2   | 1.000     | 0.833  | 0.833 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | secrets    | 3   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | ssrf       | 1   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | overall    | 10  | 0   | 5   | 6   | 1.000     | 0.667  | 0.667 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | authz_idor | 2   | 0   | 0   | 2   | 1.000     | 1.000  | 1.000 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | injection  | 2   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | secrets    | 3   | 0   | 0   | 1   | 1.000     | 1.000  | 1.000 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | ssrf       | 1   | 0   | 0   | 0   | 1.000     | 1.000  | n/a   |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | overall    | 8   | 0   | 0   | 4   | 1.000     | 1.000  | 1.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | authz_idor | 4   | 0   | 0   | 4   | 1.000     | 1.000  | 1.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | injection  | 4   | 1   | 0   | 3   | 0.800     | 1.000  | 0.750 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | secrets    | 5   | 0   | 0   | 5   | 1.000     | 1.000  | 1.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | ssrf       | 4   | 0   | 0   | 4   | 1.000     | 1.000  | 1.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | candidates | 10aef6aeb21b | overall    | 17  | 1   | 0   | 16  | 0.944     | 1.000  | 0.941 |
 | dvna       | faultline | 0.0.0   | none, heuristic | candidates | 7116755c6e8c | authz_idor | 0   | 0   | 2   | 1   | n/a       | 0.000  | 0.000 |
 | dvna       | faultline | 0.0.0   | none, heuristic | candidates | 7116755c6e8c | injection  | 2   | 0   | 1   | 1   | 1.000     | 0.667  | 0.667 |
 | dvna       | faultline | 0.0.0   | none, heuristic | candidates | 7116755c6e8c | secrets    | 0   | 0   | 2   | 1   | n/a       | 0.000  | 0.000 |
@@ -62,6 +82,26 @@ Raw scanner output is not committed. It can quote corpus source.
 | nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | e0ddcb361054 | secrets    | 0   | 0   | 3   | 1   | n/a       | 0.000  | 0.000 |
 | nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | e0ddcb361054 | ssrf       | 0   | 0   | 1   | 0   | n/a       | 0.000  | n/a   |
 | nodegoat   | faultline | 0.0.0   | none, heuristic | candidates | e0ddcb361054 | overall    | 1   | 0   | 7   | 4   | 1.000     | 0.125  | 0.125 |
+| dvna       | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | authz_idor | 0   | 0   | 2   | 1   | n/a       | 0.000  | 0.000 |
+| dvna       | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | injection  | 0   | 0   | 3   | 1   | n/a       | 0.000  | 0.000 |
+| dvna       | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | secrets    | 0   | 0   | 2   | 1   | n/a       | 0.000  | 0.000 |
+| dvna       | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | ssrf       | 0   | 0   | 0   | 0   | n/a       | n/a    | n/a   |
+| dvna       | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | overall    | 0   | 0   | 7   | 3   | n/a       | 0.000  | 0.000 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | authz_idor | 0   | 0   | 5   | 2   | n/a       | 0.000  | 0.000 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | injection  | 0   | 0   | 6   | 2   | n/a       | 0.000  | 0.000 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | secrets    | 2   | 0   | 1   | 1   | 1.000     | 0.667  | 0.667 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | ssrf       | 0   | 0   | 1   | 1   | n/a       | 0.000  | 0.000 |
+| juice-shop | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | overall    | 2   | 0   | 13  | 6   | 1.000     | 0.133  | 0.133 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | authz_idor | 0   | 0   | 2   | 2   | n/a       | 0.000  | 0.000 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | injection  | 0   | 0   | 2   | 1   | n/a       | 0.000  | 0.000 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | secrets    | 0   | 0   | 3   | 1   | n/a       | 0.000  | 0.000 |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | ssrf       | 0   | 0   | 1   | 0   | n/a       | 0.000  | n/a   |
+| nodegoat   | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | overall    | 0   | 0   | 8   | 4   | n/a       | 0.000  | 0.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | authz_idor | 0   | 0   | 4   | 4   | n/a       | 0.000  | 0.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | injection  | 0   | 0   | 4   | 4   | n/a       | 0.000  | 0.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | secrets    | 0   | 0   | 5   | 5   | n/a       | 0.000  | 0.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | ssrf       | 0   | 0   | 4   | 4   | n/a       | 0.000  | 0.000 |
+| seeded-app | faultline | 0.0.0   | none, heuristic | findings   | 10aef6aeb21b | overall    | 0   | 0   | 17  | 17  | n/a       | 0.000  | 0.000 |
 | dvna       | faultline | 0.0.0   | none, heuristic | findings   | de212c9213e1 | authz_idor | 0   | 0   | 2   | 1   | n/a       | 0.000  | 0.000 |
 | dvna       | faultline | 0.0.0   | none, heuristic | findings   | de212c9213e1 | injection  | 0   | 0   | 3   | 1   | n/a       | 0.000  | 0.000 |
 | dvna       | faultline | 0.0.0   | none, heuristic | findings   | de212c9213e1 | secrets    | 0   | 0   | 2   | 1   | n/a       | 0.000  | 0.000 |
@@ -117,9 +157,11 @@ Raw scanner output is not committed. It can quote corpus source.
 
 Commit prefixes in the table match these files.
 
+- `2026-11-01-10aef6aeb21b35888c2ebe70cbdadf996601e881-faultline-candidates.json` — faultline 0.0.0, stage candidates, commit `10aef6aeb21b35888c2ebe70cbdadf996601e881`.
 - `2026-11-01-7116755c6e8cbac52a5e1256375ac9fb4e946ef4-faultline-candidates.json` — faultline 0.0.0, stage candidates, commit `7116755c6e8cbac52a5e1256375ac9fb4e946ef4`. Inventory truncated for juice-shop at Faultline's file and byte caps.
 - `2026-11-01-de212c9213e1c96e9667272746b0c76f185191a2-faultline-candidates.json` — faultline 0.0.0, stage candidates, commit `de212c9213e1c96e9667272746b0c76f185191a2`.
 - `2026-11-01-e0ddcb361054143cb1ed97d41d00b51f30f7afd4-faultline-candidates.json` — faultline 0.0.0, stage candidates, commit `e0ddcb361054143cb1ed97d41d00b51f30f7afd4`.
+- `2026-11-01-10aef6aeb21b35888c2ebe70cbdadf996601e881-faultline-findings.json` — faultline 0.0.0, stage findings, commit `10aef6aeb21b35888c2ebe70cbdadf996601e881`.
 - `2026-11-01-de212c9213e1c96e9667272746b0c76f185191a2-faultline-findings.json` — faultline 0.0.0, stage findings, commit `de212c9213e1c96e9667272746b0c76f185191a2`.
 - `2026-11-01-e0ddcb361054143cb1ed97d41d00b51f30f7afd4-faultline-findings.json` — faultline 0.0.0, stage findings, commit `e0ddcb361054143cb1ed97d41d00b51f30f7afd4`.
 - `2026-11-01-7116755c6e8cbac52a5e1256375ac9fb4e946ef4-semgrep-scan.json` — semgrep 1.183.0, stage scan, commit `7116755c6e8cbac52a5e1256375ac9fb4e946ef4`. Rulesets: p/javascript, p/typescript, p/nodejsscan, p/secrets.

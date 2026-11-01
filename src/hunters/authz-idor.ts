@@ -1,5 +1,7 @@
+import { resolveMaxSites } from "./budget.js";
 import { fenceData } from "../recon/architecture.js";
 import { fileCoverageId, routeCoverageId } from "../recon/coverage.js";
+import type { ResolvedRouteHandler } from "../recon/handlers.js";
 import type { Inventory, InventoryMatch } from "../recon/inventory.js";
 import { parseCandidateList, type Candidate } from "../schema/candidate.js";
 import { groundCandidates } from "./ground.js";
@@ -35,7 +37,7 @@ export const FILE_HUNTED_REASON = "authz/IDOR hunter reviewed a handler in this 
 export const FILE_SKIPPED_REASON = "no authz/IDOR handler selected in this file";
 export const SKIP_NO_ID = "no object identifier on this route";
 export const SKIP_NO_STORE = "handler does not touch a data store";
-export const SKIP_CAP = "authz/IDOR handler cap reached";
+export const SKIP_CAP = "authz/IDOR site budget reached";
 export const SKIP_UNREADABLE = "handler source could not be read";
 
 const SYSTEM_PROMPT = [
@@ -239,7 +241,7 @@ function attackerNames(slice: string): Map<string, IdSource> {
     }
   }
   const simple =
-    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:req|request)\s*(?:\?\.)?\s*\.\s*(params|query|body)\s*(?:\?\.)?\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[["']([A-Za-z_$][\w$]*)["']\])/g;
+    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)(?:\s*:[^=]+)?\s*=\s*(?:req|request)\s*(?:\?\.)?\s*\.\s*(params|query|body)\s*(?:\?\.)?\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[["']([A-Za-z_$][\w$]*)["']\])/g;
   for (const match of slice.matchAll(simple)) {
     const local = match[1];
     const source = match[2];
@@ -908,11 +910,44 @@ function discoverChains(files: ReadonlyMap<string, string>): InventoryMatch[] {
   return found;
 }
 
+function mappedBody(
+  route: InventoryMatch,
+  resolved: readonly ResolvedRouteHandler[],
+  files: ReadonlyMap<string, string>,
+): MethodBody | undefined {
+  const match = resolved.find(
+    (handler) =>
+      handler.routeFile === route.path &&
+      handler.routeLine === route.line &&
+      handler.route === route.note,
+  );
+  if (match === undefined) {
+    return undefined;
+  }
+  const text = files.get(match.handlerFile);
+  if (text === undefined) {
+    return undefined;
+  }
+  const lines = stripComments(text).split(/\r?\n/);
+  const end = Math.min(match.handlerEndLine, lines.length);
+  if (match.handlerLine < 1 || match.handlerLine > lines.length || end < match.handlerLine) {
+    return undefined;
+  }
+  return {
+    file: match.handlerFile,
+    name: match.symbol,
+    start: match.handlerLine,
+    end,
+    text: lines.slice(match.handlerLine - 1, end).join("\n"),
+  };
+}
+
 function analyzeRoute(
   route: InventoryMatch,
   text: string,
   nextLine: number | undefined,
   files: ReadonlyMap<string, string>,
+  resolved: readonly ResolvedRouteHandler[] = [],
 ): { decision?: RouteDecision; handlers: Omit<AuthzHandler, "overCap">[] } {
   const lines = text.split(/\r?\n/);
   if (route.line < 1 || route.line > lines.length) {
@@ -924,6 +959,13 @@ function analyzeRoute(
     return { decision: skipped(route, SKIP_NO_ID), handlers: [] };
   }
   const statement = statementFrom(stripped, route.line);
+  const mapped = mappedBody(route, resolved, files);
+  if (mapped !== undefined) {
+    const handlers = handlersForMethod(route, stripped, statement, mapped);
+    if (handlers.length > 0) {
+      return { handlers };
+    }
+  }
   const ref = handlerRef(statement);
   if (ref !== undefined) {
     const body = resolveMethod(route.path, ref, files);
@@ -970,7 +1012,11 @@ function analyzeRoute(
   };
 }
 
-export async function planAuthz(root: string, inventory: Inventory): Promise<AuthzPlan> {
+export async function planAuthz(
+  root: string,
+  inventory: Inventory,
+  maxSites = resolveMaxSites(undefined),
+): Promise<AuthzPlan> {
   const allowed = new Set(inventory.source_files);
   const files = new Map<string, string>();
   for (const rel of inventory.source_files) {
@@ -1010,7 +1056,7 @@ export async function planAuthz(root: string, inventory: Inventory): Promise<Aut
     }
     const siblings = byFile.get(route.path) ?? [];
     const next = siblings.find((item) => item.line > route.line);
-    const analyzed = analyzeRoute(route, text, next?.line, files);
+    const analyzed = analyzeRoute(route, text, next?.line, files, inventory.handlers);
     if (analyzed.decision !== undefined) {
       decisions.push(analyzed.decision);
     }
@@ -1025,7 +1071,7 @@ export async function planAuthz(root: string, inventory: Inventory): Promise<Aut
   );
   const handlers: AuthzHandler[] = selected.map((handler, index) => ({
     ...handler,
-    overCap: index >= HUNTER_SITE_CAP,
+    overCap: index >= maxSites,
   }));
   for (const handler of handlers) {
     decisions.push({
@@ -1158,7 +1204,7 @@ export const authzIdorHunter: Hunter = {
   name: "authz-idor",
   class: "authz_idor",
   async run(ctx) {
-    const plan = await planAuthz(ctx.root, ctx.inventory);
+    const plan = await planAuthz(ctx.root, ctx.inventory, resolveMaxSites(ctx.maxSites));
     markPlan(ctx, plan);
     const reviewed = plan.handlers.filter((handler) => !handler.overCap);
     if (ctx.provider === undefined) {
