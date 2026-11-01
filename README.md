@@ -2,7 +2,7 @@
 
 Faultline is an open-source security-detector CLI for startup engineering teams. It writes only findings that survived a disproof attempt, as `findings.json`, `report.md`, and `findings.sarif`.
 
-**Status: pre-alpha.** `scan` and `pr` run the authz/IDOR, injection, secrets, and SSRF hunters, then independently attempt to disprove each candidate. Model validation requires two independent confirmations with grounded evidence. Without a provider, bounded per-class heuristic checks can promote medium or high confidence candidates; findings identify heuristic validation. Rejected and inconclusive candidates appear with reasons in `report.md`. `--no-validate` keeps the candidates-only behavior. PR hunts remain scoped to changed hunks. The findings schema and `validate` command work.
+**Status: pre-alpha.** `scan` and `pr` run the authz/IDOR, injection, secrets, and SSRF hunters, then independently attempt to disprove each candidate. Model validation requires two independent confirmations with grounded evidence. A disproof counts only when the model cites a guarding line that exists in the tree; otherwise the candidate is inconclusive, not disproved. Without a provider, bounded per-class heuristic checks can promote medium or high confidence candidates; findings identify heuristic validation. Disproved and inconclusive candidates are separate lists in `report.md` and `findings.json`. `--keep-inconclusive` promotes inconclusive candidates to low-confidence findings so a bench can score that policy. It is off by default, and it does not skip re-verification for a confirmed finding. `--no-validate` keeps the candidates-only behavior. PR hunts remain scoped to changed hunks. The findings schema and `validate` command work.
 
 ## Requirements
 
@@ -108,17 +108,17 @@ Reviewed SSRF coverage rows are `hunted`. Handlers with no selected sink, a fixe
 
 `anthropic` calls the Anthropic Messages API. The client posts to `{base}/v1/messages`. The default base is `https://api.anthropic.com`. The request uses `max_tokens` 4096.
 
-`codex` runs each prompt through the local OpenAI Codex CLI (`codex exec`). It does not read `FAULTLINE_API_KEY`. Sign in with `codex login` on a ChatGPT plan first. The executable is `FAULTLINE_CODEX_BIN`, or `codex` on `PATH`. `--model` is passed as `-m`. With no `--model` and no `FAULTLINE_MODEL`, Codex uses the model configured in the CLI, and bench records that model as null.
+`codex` runs each prompt through the local OpenAI Codex CLI (`codex exec`). It does not read `FAULTLINE_API_KEY`. Sign in with `codex login` on a ChatGPT plan first. The executable is `FAULTLINE_CODEX_BIN`, or `codex` on `PATH`. `--model` is passed as `-m`. With no `--model` and no `FAULTLINE_MODEL`, Faultline reads the model id from the Codex event stream. If that stream never names one, the run records `codex-cli-default` plus the Codex CLI version. Every run also records the provider, the Faultline commit, and the start timestamp in `findings.json`, SARIF run properties, and bench result files.
 
 Faultline checks `codex login status`, then runs `codex exec` with an argument array and `shell: false`. The prompt is stdin (`-`), not an argument. The working directory is a new empty temporary directory, not the repository being scanned. The sandbox is `read-only`. Approval policy is `never`. User config and execpolicy rules are not loaded. Web search is disabled, and `sandbox_workspace_write.network_access` is set false. Current `codex exec` has no `--no-network` flag; that combination is what blocks the inner agent's commands from using the network. The Codex process itself still calls the ChatGPT service. The session is ephemeral (`--ephemeral`) and is allowed outside a git repo (`--skip-git-repo-check`). The final message is read from `--output-last-message`. If that file is empty, Faultline uses a JSONL `agent_message` when stdout is an event stream. Faultline does not read or copy `~/.codex/auth.json`. API keys and proxy URLs with userinfo are not passed to the child. Token-like strings are redacted from errors. A missing binary or a failed login status exits with an error.
 
 The prompt tells Codex to answer in pure text JSON when the request asks for JSON, with no markdown fence. Hunters and the disproof validator parse that text with the existing zod schemas. Faultline does not send `jsonSchema` and does not pass `--output-schema`. An architecture summary still asks for markdown.
 
-| Provider    | Default model id                                 |
-| ----------- | ------------------------------------------------ |
-| `openai`    | `gpt-4o-mini`                                    |
-| `anthropic` | `claude-3-5-haiku-latest`                        |
-| `codex`     | the Codex CLI's own model (no Faultline default) |
+| Provider    | Default model id                                                              |
+| ----------- | ----------------------------------------------------------------------------- |
+| `openai`    | `gpt-4o-mini`                                                                 |
+| `anthropic` | `claude-3-5-haiku-latest`                                                     |
+| `codex`     | Codex `-m` or the event stream; else `codex-cli-default` plus the CLI version |
 
 The default model is only the id sent when you leave `--model` and `FAULTLINE_MODEL` unset. It is not a claim about which model is best. Set a model your account can call.
 

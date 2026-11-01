@@ -54,6 +54,7 @@ export function renderBenchMarkdown(result: BenchResult): string {
     `- provider: ${providerLabel(result.run.provider)}`,
     `- model: ${result.run.model ?? "none"}`,
     `- commit: ${result.run.commit ?? "not recorded"}`,
+    `- started: ${result.run.started_at}`,
     `- citable: ${result.citable ? "yes" : "no"}`,
     `- run: ${result.run.id}`,
     `- detections: ${result.counts.detections}`,

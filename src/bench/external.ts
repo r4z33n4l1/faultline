@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { faultlineCommit } from "../version.js";
 import { importSarif } from "./sarif-import.js";
 import {
   benchResultFromDetections,
   loadTruthFile,
-  readGitCommit,
   writeBenchResult,
   type BenchResultDraft,
 } from "./run.js";
@@ -31,7 +31,7 @@ async function publish(
   detections: readonly DetectionSpan[],
 ): Promise<BenchResult> {
   const truth = await loadTruthFile(resolve(request.cwd, request.truthPath), request.root);
-  const commit = await readGitCommit(request.cwd);
+  const commit = await faultlineCommit();
   const draft: BenchResultDraft = {
     target: request.targetLabel,
     truthPath: request.truthLabel,

@@ -2,10 +2,10 @@ import * as z from "zod";
 import {
   CONFIDENCE_LEVELS,
   FINDING_CLASSES,
-  RUN_MODES,
   SCHEMA_VERSION,
   SEVERITIES,
   locationSchema,
+  runSchema,
   type FindingClass,
 } from "./finding.js";
 
@@ -48,13 +48,7 @@ export const candidatesFileSchema = z.strictObject({
     name: nonEmpty,
     version: nonEmpty,
   }),
-  run: z.strictObject({
-    id: nonEmpty,
-    started_at: z.iso.datetime(),
-    target: nonEmpty,
-    mode: z.enum(RUN_MODES),
-    provider: nonEmpty.optional(),
-  }),
+  run: runSchema,
   candidates: z.array(candidateSchema),
 });
 

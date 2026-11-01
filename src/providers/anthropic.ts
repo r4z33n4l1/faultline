@@ -41,6 +41,10 @@ export class AnthropicProvider implements ModelProvider {
     this.#sleep = options.sleep ?? sleep;
   }
 
+  get model(): string {
+    return this.#model;
+  }
+
   async complete(input: CompleteInput): Promise<string> {
     const payload = await requestJson({
       providerName: this.name,

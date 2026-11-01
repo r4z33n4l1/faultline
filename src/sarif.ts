@@ -103,6 +103,13 @@ const ruleSchema = z.strictObject({
   shortDescription: textMessageSchema,
 });
 
+const runPropertiesSchema = z.strictObject({
+  "faultline/provider": z.string().min(1),
+  "faultline/model": z.string().min(1),
+  "faultline/commit": z.string().min(1),
+  "faultline/timestamp": z.iso.datetime(),
+});
+
 const runSchema = z.strictObject({
   tool: z.strictObject({
     driver: z.strictObject({
@@ -111,6 +118,7 @@ const runSchema = z.strictObject({
       rules: z.array(ruleSchema),
     }),
   }),
+  properties: runPropertiesSchema,
   results: z.array(resultSchema),
 });
 
@@ -251,13 +259,16 @@ function regionFor(location: Finding["location"]): { startLine: number; endLine?
   return { startLine: location.start_line, endLine: location.end_line };
 }
 
-/** Confirmed findings to a SARIF log. Does not read the tree or include unconfirmed results. */
+/** Confirmed findings to a SARIF log. Inconclusive promotions stay in findings.json. */
 export function toSarif(file: FindingsFile, scanRoot: string): SarifLog {
   const rules: z.infer<typeof ruleSchema>[] = [];
   const seen = new Set<string>();
   const results: z.infer<typeof resultSchema>[] = [];
 
   for (const finding of file.findings) {
+    if (finding.validator_verdict !== "confirmed") {
+      continue;
+    }
     const ruleId = ruleIdFor(finding);
     if (!seen.has(ruleId)) {
       seen.add(ruleId);
@@ -288,7 +299,7 @@ export function toSarif(file: FindingsFile, scanRoot: string): SarifLog {
         "ai/origin": "faultline",
         "ai/exploitability": finding.exploitability,
         confidence: finding.confidence.level,
-        validator_verdict: finding.validator_verdict,
+        validator_verdict: "confirmed",
       },
     });
   }
@@ -304,6 +315,12 @@ export function toSarif(file: FindingsFile, scanRoot: string): SarifLog {
             version: TOOL_VERSION,
             rules,
           },
+        },
+        properties: {
+          "faultline/provider": file.run.provider ?? "none",
+          "faultline/model": file.run.model ?? "none",
+          "faultline/commit": file.run.commit ?? "unknown",
+          "faultline/timestamp": file.run.started_at,
         },
         results,
       },

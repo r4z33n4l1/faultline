@@ -3,8 +3,8 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runHunters } from "../recon/run.js";
 import { writeRunOutput } from "../output.js";
-import { runPipeline } from "../pipeline.js";
-import { validateCandidates } from "../validator/index.js";
+import { provenanceFor, runPipeline } from "../pipeline.js";
+import { disprovedEntries, inconclusiveEntries, validateCandidates } from "../validator/index.js";
 import type { ModelProvider } from "../providers/types.js";
 import { renderArchitecture } from "../recon/architecture.js";
 import {
@@ -40,6 +40,8 @@ export interface PrRequest {
   context: number;
   provider?: ModelProvider;
   validate?: boolean;
+  /** Promote inconclusive candidates to low-confidence findings. Default off. */
+  keepInconclusive?: boolean;
   /** Include and exclude globs, and file or byte caps. Defaults apply when omitted. */
   inventory?: CollectOptions;
   startedAt?: Date;
@@ -83,12 +85,20 @@ export async function executePr(request: PrRequest): Promise<void> {
   );
   const validation =
     request.validate === false
-      ? { findings: [], disproved: [] }
-      : await validateCandidates(candidates, { root: request.repo, provider: request.provider });
+      ? { findings: [], disproved: [], inconclusive: [] }
+      : await validateCandidates(candidates, {
+          root: request.repo,
+          provider: request.provider,
+          inventory,
+          keepInconclusive: request.keepInconclusive === true,
+        });
+  const provenance = await provenanceFor(request.provider);
   const findings = runPipeline({
     mode: "pr",
     target: request.diffLabel,
     provider: request.provider,
+    model: provenance.model,
+    commit: provenance.commit,
     startedAt,
     runId,
     findings: validation.findings,
@@ -96,7 +106,8 @@ export async function executePr(request: PrRequest): Promise<void> {
   await writeRunOutput(request.outDir, findings, {
     scanRoot: request.repo,
     unvalidatedCandidates: request.validate === false ? candidates.length : 0,
-    disproved: validation.disproved,
+    disproved: disprovedEntries(validation.disproved),
+    inconclusive: inconclusiveEntries(validation.inconclusive),
     changedFiles: changed.map((file) => file.path),
     hunkContext: request.context,
     inventoryNote: inventoryCapNote(inventory),

@@ -4,8 +4,8 @@ import { join, resolve } from "node:path";
 import { hunters } from "../hunters/registry.js";
 import type { HunterContext } from "../hunters/types.js";
 import { writeRunOutput } from "../output.js";
-import { runPipeline } from "../pipeline.js";
-import { validateCandidates } from "../validator/index.js";
+import { provenanceFor, runPipeline } from "../pipeline.js";
+import { disprovedEntries, inconclusiveEntries, validateCandidates } from "../validator/index.js";
 import type { ModelProvider } from "../providers/types.js";
 import { serializeCandidates, type Candidate } from "../schema/candidate.js";
 import { renderArchitecture } from "./architecture.js";
@@ -23,6 +23,8 @@ export interface ScanRequest {
   outDir: string;
   provider?: ModelProvider;
   validate?: boolean;
+  /** Promote inconclusive candidates to low-confidence findings. Default off. */
+  keepInconclusive?: boolean;
   /** Include and exclude globs, and file or byte caps. Defaults apply when omitted. */
   inventory?: CollectOptions;
   startedAt?: Date;
@@ -69,12 +71,20 @@ export async function executeScan(request: ScanRequest): Promise<void> {
   const coverage = applyCoverageMarks(buildCoverage(request.target, inventory), marks);
   const validation =
     request.validate === false
-      ? { findings: [], disproved: [] }
-      : await validateCandidates(candidates, { root: abs, provider: request.provider });
+      ? { findings: [], disproved: [], inconclusive: [] }
+      : await validateCandidates(candidates, {
+          root: abs,
+          provider: request.provider,
+          inventory,
+          keepInconclusive: request.keepInconclusive === true,
+        });
+  const provenance = await provenanceFor(request.provider);
   const findings = runPipeline({
     mode: "scan",
     target: request.target,
     provider: request.provider,
+    model: provenance.model,
+    commit: provenance.commit,
     startedAt,
     runId,
     findings: validation.findings,
@@ -82,7 +92,8 @@ export async function executeScan(request: ScanRequest): Promise<void> {
   await writeRunOutput(request.outDir, findings, {
     scanRoot: abs,
     unvalidatedCandidates: request.validate === false ? candidates.length : 0,
-    disproved: validation.disproved,
+    disproved: disprovedEntries(validation.disproved),
+    inconclusive: inconclusiveEntries(validation.inconclusive),
     inventoryNote: inventoryCapNote(inventory),
   });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");

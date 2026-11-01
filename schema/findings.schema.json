@@ -48,8 +48,37 @@
           ]
         },
         "provider": {
-          "type": "string",
-          "minLength": 1
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -211,7 +240,10 @@
           },
           "validator_verdict": {
             "type": "string",
-            "const": "confirmed"
+            "enum": [
+              "confirmed",
+              "inconclusive"
+            ]
           },
           "suggested_fix": {
             "type": "object",
@@ -251,6 +283,106 @@
           "validator_verdict",
           "suggested_fix",
           "references"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "disproved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string",
+            "enum": [
+              "authz_idor",
+              "injection",
+              "secrets",
+              "ssrf",
+              "other"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "end_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "class",
+          "file",
+          "start_line",
+          "symbol",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "inconclusive": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string",
+            "enum": [
+              "authz_idor",
+              "injection",
+              "secrets",
+              "ssrf",
+              "other"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "end_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kept": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "class",
+          "file",
+          "start_line",
+          "symbol",
+          "reason",
+          "kept"
         ],
         "additionalProperties": false
       }

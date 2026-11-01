@@ -167,7 +167,7 @@ it("scan without a provider writes an inventory-only architecture", async () => 
   expect(architecture).toContain("`.env`");
   expect(architecture).not.toContain("Model summary");
   const findings = findingsFileSchema.parse(JSON.parse(files["findings.json"] ?? "") as unknown);
-  expect(findings.run.provider).toBeUndefined();
+  expect(findings.run.provider).toBeNull();
   const dumped = [captured.stdout(), captured.stderr(), ...Object.values(files)].join("\n");
   expect(dumped).not.toContain(secret);
   expect(dumped).not.toContain("FAULTLINE_DUMMY_SECRET");

@@ -16,6 +16,9 @@ import {
   buildCodexExecArgs,
   buildCodexPrompt,
   codexChildEnv,
+  codexUnknownModelLabel,
+  codexVersionFromText,
+  modelIdFromCodexOutput,
 } from "../src/providers/codex.js";
 import type { CodexChild, CodexSpawn, CodexSpawnOptions } from "../src/providers/definition.js";
 import {
@@ -512,6 +515,54 @@ it("scan with a missing codex binary does not require an API key or write findin
   expect(stderr).not.toContain(TOKEN);
   expect(out.join("")).not.toContain(TOKEN);
   await expect(stat(join(dir, "out", "findings.json"))).rejects.toThrow();
+});
+
+it("resolves a codex model from the event stream, -m, or the CLI version", async () => {
+  expect(
+    modelIdFromCodexOutput(
+      [
+        JSON.stringify({ type: "thread.started", thread_id: "t", model: "gpt-5.4-codex" }),
+        JSON.stringify({
+          type: "item.completed",
+          item: { type: "agent_message", text: '{"verdict":"uncertain"}' },
+        }),
+      ].join("\n"),
+      "",
+    ),
+  ).toBe("gpt-5.4-codex");
+  expect(modelIdFromCodexOutput("", "model: gpt-5.1-codex\n")).toBe("gpt-5.1-codex");
+  expect(modelIdFromCodexOutput(JSON.stringify({ model: "default" }), "")).toBeUndefined();
+  expect(codexVersionFromText("codex-cli 0.98.0")).toBe("0.98.0");
+  expect(codexUnknownModelLabel("0.98.0")).toBe("codex-cli-default (codex 0.98.0)");
+  expect(codexUnknownModelLabel(undefined)).toBe("codex-cli-default (codex version unknown)");
+
+  const home = await mkdtemp(join(tmpdir(), "faultline-codex-model-"));
+  const env = { HOME: home, PATH: "/usr/bin" };
+  const observed = scripted({
+    file: "ok\n",
+    stdout: `${JSON.stringify({ type: "thread.started", thread_id: "t", model: "gpt-5.4-codex" })}\n`,
+  });
+  const fromEvents = createProvider("codex", { codexEnv: env, codexSpawn: observed.spawn });
+  await fromEvents.complete(input("hello", { type: "object" }));
+  expect(fromEvents.model).toBe("gpt-5.4-codex");
+  expect(observed.calls.some((call) => call.args[0] === "--version")).toBe(false);
+
+  const flagged = scripted({
+    file: "ok\n",
+    stdout: `${JSON.stringify({ type: "thread.started", thread_id: "t", model: "other-model" })}\n`,
+  });
+  const fromFlag = createProvider("codex", {
+    model: "from-flag",
+    codexEnv: env,
+    codexSpawn: flagged.spawn,
+  });
+  await fromFlag.complete(input("hello", { type: "object" }));
+  expect(fromFlag.model).toBe("from-flag");
+
+  const versioned = scripted({ stdout: "codex-cli 1.2.3\n" });
+  const unknown = createProvider("codex", { codexEnv: env, codexSpawn: versioned.spawn });
+  await expect(unknown.resolveModel?.()).resolves.toBe("codex-cli-default (codex 1.2.3)");
+  expect(versioned.calls[0]?.args).toEqual(["--version"]);
 });
 
 it("drops proxy userinfo and keeps a proxy without credentials", () => {

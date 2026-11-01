@@ -217,6 +217,7 @@ async function runScan(
   inventory: CollectOptions,
   io: CliIo,
   validate = true,
+  keepInconclusive = false,
 ): Promise<number> {
   const cwd = io.cwd ?? process.cwd();
   const outDir = resolve(cwd, out);
@@ -234,6 +235,7 @@ async function runScan(
       outDir,
       provider,
       validate,
+      keepInconclusive,
       inventory,
     });
   } catch (error) {
@@ -262,6 +264,7 @@ async function runCorpus(
   modelFlag: string | undefined,
   inventory: CollectOptions,
   io: CliIo,
+  keepInconclusive = false,
 ): Promise<number> {
   if (!isBenchStage(stage)) {
     io.stderr("stage must be candidates or findings\n");
@@ -363,6 +366,7 @@ async function runCorpus(
       truthPath: paths.truthLabel,
       model,
       inventory,
+      keepInconclusive,
       ...(provider === undefined ? {} : { provider }),
     });
   } catch (error) {
@@ -382,6 +386,7 @@ async function runBench(
   modelFlag: string | undefined,
   inventory: CollectOptions,
   io: CliIo,
+  keepInconclusive = false,
 ): Promise<number> {
   if (!isBenchStage(stage)) {
     io.stderr("stage must be candidates or findings\n");
@@ -413,6 +418,7 @@ async function runBench(
       truthPath,
       model,
       inventory,
+      keepInconclusive,
       ...(provider === undefined ? {} : { provider }),
     });
   } catch (error) {
@@ -433,6 +439,7 @@ async function runPr(
   inventory: CollectOptions,
   io: CliIo,
   validate = true,
+  keepInconclusive = false,
 ): Promise<number> {
   const github = githubPullRequestMessage(source);
   if (github !== undefined) {
@@ -490,6 +497,7 @@ async function runPr(
       context,
       provider,
       validate,
+      keepInconclusive,
       inventory,
     });
   } catch (error) {
@@ -528,6 +536,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   program
     .command("scan")
     .option("--no-validate", "skip validation and write candidates only")
+    .option(
+      "--keep-inconclusive",
+      "promote inconclusive candidates to low-confidence findings (default: drop them)",
+    )
     .description(
       "Inventory a directory, hunt authz/IDOR, injection, secrets, and SSRF candidates, and write findings, report, SARIF, candidates, architecture, and coverage",
     )
@@ -543,6 +555,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         provider?: string;
         model?: string;
         validate: boolean;
+        keepInconclusive?: boolean;
       } & InventoryFlagInput,
     ) => {
       let inventory: CollectOptions;
@@ -561,6 +574,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         inventory,
         io,
         opts.validate,
+        opts.keepInconclusive === true,
       );
     },
   );
@@ -586,7 +600,11 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .option("--baseline <tool>", "score Semgrep OSS instead of a Faultline scan")
     .option("--sarif <file>", "score a SARIF file with the shared importer; does not run a tool")
     .option("--tool-name <name>", "tool name recorded for --sarif")
-    .option("--tool-version <version>", "tool version recorded for --sarif");
+    .option("--tool-version <version>", "tool version recorded for --sarif")
+    .option(
+      "--keep-inconclusive",
+      "when --stage findings, promote inconclusive candidates to low-confidence findings",
+    );
   addInventoryOptions(program.commands[program.commands.length - 1] ?? program).action(
     async (
       target: string | undefined,
@@ -603,6 +621,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         sarif?: string;
         toolName?: string;
         toolVersion?: string;
+        keepInconclusive?: boolean;
       } & InventoryFlagInput,
     ) => {
       let inventory: CollectOptions;
@@ -633,6 +652,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
           opts.model,
           inventory,
           io,
+          opts.keepInconclusive === true,
         );
         return;
       }
@@ -655,6 +675,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         opts.model,
         inventory,
         io,
+        opts.keepInconclusive === true,
       );
     },
   );
@@ -662,6 +683,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   program
     .command("pr")
     .option("--no-validate", "skip validation and write candidates only")
+    .option(
+      "--keep-inconclusive",
+      "promote inconclusive candidates to low-confidence findings (default: drop them)",
+    )
     .description(
       "Hunt changed lines in a unified diff and write findings, report, SARIF, candidates, architecture, and coverage",
     )
@@ -681,6 +706,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         provider?: string;
         model?: string;
         validate: boolean;
+        keepInconclusive?: boolean;
       } & InventoryFlagInput,
     ) => {
       let inventory: CollectOptions;
@@ -701,6 +727,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         inventory,
         io,
         opts.validate,
+        opts.keepInconclusive === true,
       );
     },
   );
