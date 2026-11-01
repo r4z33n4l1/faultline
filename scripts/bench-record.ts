@@ -11,6 +11,7 @@ import {
   CORPUS_RESULTS_MODEL,
   CORPUS_RESULTS_NOTE,
   corpusAppResult,
+  corpusAppResultSchema,
   corpusResultsFilename,
   corpusResultsSchema,
   renderCorpusResultsDir,
@@ -94,6 +95,34 @@ async function main(): Promise<void> {
     });
     semgrepApps.push(corpusAppResult(app, semgrep, null));
     process.stdout.write(`${app.name} semgrep recall ${String(semgrep.overall.recall)}\n`);
+  }
+  for (const stage of stages) {
+    const seededOut = join(scratch, `seeded-app-faultline-${stage}`);
+    const seeded = await executeBench({
+      target: "bench/seeded-app",
+      cwd,
+      outDir: seededOut,
+      stage,
+      truthPath: "bench/seeded-app/truth.json",
+      model: null,
+    });
+    faultlineByStage.get(stage)?.push(
+      corpusAppResultSchema.parse({
+        name: "seeded-app",
+        upstream: "bench/seeded-app",
+        license: "MIT",
+        corpus_commit: commit,
+        target: seeded.target,
+        truth: seeded.truth,
+        inventory_truncated: await inventoryTruncated(seededOut),
+        counts: seeded.counts,
+        overall: seeded.overall,
+        classes: seeded.classes,
+        entries: seeded.entries,
+        unmatched: seeded.unmatched,
+      }),
+    );
+    process.stdout.write(`seeded-app faultline ${stage} recall ${String(seeded.overall.recall)}\n`);
   }
   const resultsDir = join(cwd, "bench", "results");
   await mkdir(resultsDir, { recursive: true });
