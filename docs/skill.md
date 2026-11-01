@@ -8,21 +8,26 @@ The layout follows [cloudflare/security-audit-skill](https://github.com/cloudfla
 
 Requires Node.js 20 or newer. Faultline is not on the npm registry. `npm publish` runs `prepublishOnly`, which exits with an error.
 
-`package.json` already has `"bin": { "faultline": "./dist/cli.js" }`. `dist/` is not committed. The `prepare` script is `tsc -p tsconfig.build.json`. npm runs `prepare` when it installs a git dependency, then links the bin. From the repository you want to scan:
+`package.json` already has `"bin": { "faultline": "./dist/cli.js" }`. `dist/` is not committed. The `prepare` script is `tsc -p tsconfig.build.json`. npm runs `prepare` when it installs a git dependency, then links the bin.
+
+Node.js 20.20 ships npm 10.8.2. `npx github:r4z33n4l1/faultline` fails there while packing the git repo (`GitFetcher requires an Arborist constructor to pack a tarball`). `npm install` of the same spec still runs `prepare` and links the bin:
+
+```bash
+mkdir -p /tmp/faultline-run && cd /tmp/faultline-run
+npm init -y
+npm install github:r4z33n4l1/faultline
+npx faultline scan /path/to/repo --out /path/to/repo/faultline-out
+```
+
+npm 10.9.9 can run the shorter command:
 
 ```bash
 npx github:r4z33n4l1/faultline scan .
 ```
 
-The same install, with the package and the command separated:
+`npx --package github:...` is the same install with the package and the command separated. Leave it alone on npm 10.8.2; it hits the same packer bug. `github:r4z33n4l1/faultline` tracks the default branch. A branch or commit ref is `github:r4z33n4l1/faultline#<ref>`.
 
-```bash
-npx --yes --package github:r4z33n4l1/faultline -- faultline scan . --out ./faultline-out
-```
-
-Some npm builds fail that `--package` form for a git spec with `GitFetcher requires an Arborist constructor to pack a tarball`. The positional command above is the one CI runs.
-
-`npx github:r4z33n4l1/faultline` tracks the default branch. A branch or commit ref is `github:r4z33n4l1/faultline#<ref>`. CI uses that form so the job installs the commit under test rather than `main`. See `.github/workflows/ci.yml` and `scripts/smoke-git-install.sh`. The smoke scan target is `test/fixtures/idor-app`. It checks that the six scan outputs exist and that findings, candidates, and coverage parse. It does not print file contents.
+CI, on the Node.js 20 image, installs that ref with `npm install` and scans `test/fixtures/idor-app`. It then runs `npx` from npm 10.9.9 against the same ref. See `.github/workflows/ci.yml` and `scripts/smoke-git-install.sh`. The script checks that the six scan outputs exist and that the tool name and version match this package. It does not print file contents.
 
 A checkout of this repo does not need npx. `pnpm install` runs `prepare` and compiles `dist/`. Then:
 
@@ -30,7 +35,7 @@ A checkout of this repo does not need npx. `pnpm install` runs `prepare` and com
 pnpm exec faultline scan .
 ```
 
-`pnpm build` is the same compile, if you want to run it again. Do not `npm install -g faultline`.
+`pnpm build` is the same compile, if you want to run it again. Do not `npm install -g faultline`. `pnpm dlx` of this git repo refuses to run `prepare` unless `faultline` is listed in `onlyBuiltDependencies`, so that is not an install path.
 
 ## Skill files
 

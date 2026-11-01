@@ -11,7 +11,18 @@ Faultline is an open-source security-detector CLI for startup engineering teams.
 
 ## Run without a global install
 
-Faultline is not published to the npm registry. `prepublishOnly` exits with an error if `npm publish` is run. From Node.js 20 or newer, npm can install this git repo, run `prepare` (which compiles `dist/` with `tsc`), and start the `faultline` bin:
+Faultline is not published to the npm registry. `prepublishOnly` exits with an error if `npm publish` is run. From Node.js 20 or newer, npm can install this git repo, run `prepare` (which compiles `dist/` with `tsc`), and start the `faultline` bin.
+
+Node.js 20.20 ships npm 10.8.2. That npm cannot pack a git dependency from `npx` (`GitFetcher requires an Arborist constructor`). Install the git package, then run the linked bin:
+
+```bash
+mkdir -p /tmp/faultline-run && cd /tmp/faultline-run
+npm init -y
+npm install github:r4z33n4l1/faultline
+npx faultline scan /path/to/repo
+```
+
+npm 10.9.9 (the npm with current Node.js 22) can run the shorter command:
 
 ```bash
 npx github:r4z33n4l1/faultline scan .

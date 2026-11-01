@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Install faultline the way `npx github:r4z33n4l1/faultline` does, then scan a fixture.
-# FAULTLINE_SMOKE_SPEC overrides the package spec. The default is a git+file URL of HEAD,
-# which exercises the same npm prepare + bin path without waiting for a GitHub ref.
+# Install faultline from git and scan a fixture.
+# FAULTLINE_SMOKE_SPEC overrides the package spec. The default is a git+file URL of HEAD.
+#
+# Node 20.20 ships npm 10.8.2. On that npm, `npx github:owner/repo` fails with
+# "GitFetcher requires an Arborist constructor to pack a tarball".
+# `npm install github:owner/repo` still runs prepare and links the bin.
+# npm 10.9.9 can run the positional npx command. This script checks both.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,17 +28,10 @@ if [[ ! -d "$fixture" ]]; then
   exit 1
 fi
 
-out="$tmp/out"
-echo "smoke-git-install: node $(node -v) npm $(npm -v)"
-echo "smoke-git-install: npx $spec scan <fixture>"
-
-# Positional form of `npx github:r4z33n4l1/faultline scan .`.
-# `npx --package github:...` fails on some npm builds with
-# "GitFetcher requires an Arborist constructor to pack a tarball".
-npx --yes "$spec" scan "$fixture" --out "$out"
-
 expected="$(node -p "require('$root/package.json').version")"
-node --input-type=module - "$out" "$expected" <<'EOF'
+
+check_out() {
+  node --input-type=module - "$1" "$expected" <<'EOF'
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -78,5 +75,25 @@ if (!Array.isArray(coverage.units) || coverage.units.length === 0) {
   process.exit(1);
 }
 EOF
+}
+
+echo "smoke-git-install: node $(node -v) npm $(npm -v)"
+echo "smoke-git-install: npm install $spec"
+
+app="$tmp/app"
+mkdir -p "$app"
+(
+  cd "$app"
+  npm init -y >/dev/null
+  npm install --no-audit --no-fund "$spec"
+)
+"$app/node_modules/.bin/faultline" --version
+"$app/node_modules/.bin/faultline" scan "$fixture" --out "$tmp/out"
+check_out "$tmp/out"
+
+echo "smoke-git-install: npx via npm 10.9.9"
+npm install --prefix "$tmp/npm109" npm@10.9.9 --no-audit --no-fund
+"$tmp/npm109/node_modules/.bin/npx" --yes "$spec" scan "$fixture" --out "$tmp/out-npx"
+check_out "$tmp/out-npx"
 
 echo "smoke-git-install: ok"

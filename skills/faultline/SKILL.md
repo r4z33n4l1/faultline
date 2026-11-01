@@ -22,13 +22,20 @@ This file follows the Agent Skills layout: YAML `name` and `description`, then i
 
 ## Run
 
-Node.js 20 or newer. No global install. From the target repository:
+Node.js 20 or newer. No global install. npm 10.9.9 or newer (current Node.js 22):
 
 ```bash
 npx github:r4z33n4l1/faultline scan . --out ./faultline-out
 ```
 
-That command is npm installing `github:r4z33n4l1/faultline`, running its `prepare` build, and invoking the `faultline` bin. Use this positional form. On some npm builds, `npx --package github:...` fails while packing the git repo.
+That installs `github:r4z33n4l1/faultline`, runs `prepare`, and starts the `faultline` bin. Node.js 20.20 ships npm 10.8.2, and `npx` of a git URL fails there with `GitFetcher requires an Arborist constructor`. Use `npm install` instead, from an empty directory, then run the linked bin against the target:
+
+```bash
+mkdir -p /tmp/faultline-run && cd /tmp/faultline-run
+npm init -y
+npm install github:r4z33n4l1/faultline
+npx faultline scan /absolute/path/to/repo --out /absolute/path/to/repo/faultline-out
+```
 
 If this checkout already has `node_modules/.bin/faultline` after `pnpm install`, use `pnpm exec faultline` instead of npx.
 
@@ -37,6 +44,8 @@ For a pull request, pipe a local unified diff. Faultline does not fetch a GitHub
 ```bash
 gh pr diff <url> | npx github:r4z33n4l1/faultline pr - --repo . --out ./faultline-out
 ```
+
+On npm 10.8.2, pipe the diff into the linked bin from the install above instead of `npx github:...`.
 
 `--repo` is the tree after the change. A diff over 1000000 bytes is rejected. `--context` defaults to 3 and cannot exceed 20.
 
