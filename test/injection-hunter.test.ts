@@ -671,7 +671,9 @@ describe("injection scan output", () => {
     });
     const captured = capture();
     captured.io.provider = provider;
-    expect(await runCli(["scan", injectionFixture, "--out", dir], captured.io)).toBe(0);
+    expect(
+      await runCli(["scan", "--no-validate", injectionFixture, "--out", dir], captured.io),
+    ).toBe(0);
 
     const findingsText = await readFile(join(dir, "findings.json"), "utf8");
     const sarifText = await readFile(join(dir, "findings.sarif"), "utf8");
@@ -720,7 +722,9 @@ describe("injection scan output", () => {
 
     const offline = await mkdtemp(join(tmpdir(), "faultline-injection-offline-"));
     const offlineIo = capture();
-    expect(await runCli(["scan", injectionFixture, "--out", offline], offlineIo.io)).toBe(0);
+    expect(
+      await runCli(["scan", "--no-validate", injectionFixture, "--out", offline], offlineIo.io),
+    ).toBe(0);
     const offlineCandidates = candidatesFileSchema.parse(
       JSON.parse(await readFile(join(offline, "candidates.json"), "utf8")) as unknown,
     );

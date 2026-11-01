@@ -605,7 +605,9 @@ describe("secrets scan output", () => {
     });
     const captured = capture();
     captured.io.provider = provider;
-    expect(await runCli(["scan", secretsFixture, "--out", dir], captured.io)).toBe(0);
+    expect(await runCli(["scan", "--no-validate", secretsFixture, "--out", dir], captured.io)).toBe(
+      0,
+    );
 
     const findingsText = await readFile(join(dir, "findings.json"), "utf8");
     const sarifText = await readFile(join(dir, "findings.sarif"), "utf8");
@@ -653,7 +655,9 @@ describe("secrets scan output", () => {
 
     const offline = await mkdtemp(join(tmpdir(), "faultline-secrets-offline-"));
     const offlineIo = capture();
-    expect(await runCli(["scan", secretsFixture, "--out", offline], offlineIo.io)).toBe(0);
+    expect(
+      await runCli(["scan", "--no-validate", secretsFixture, "--out", offline], offlineIo.io),
+    ).toBe(0);
     const offlineText = await readFile(join(offline, "candidates.json"), "utf8");
     const offlineCandidates = candidatesFileSchema.parse(JSON.parse(offlineText) as unknown);
     const offlineFindings = await readFile(join(offline, "findings.json"), "utf8");

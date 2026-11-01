@@ -4,6 +4,7 @@ import {
   SCHEMA_VERSION,
   findingsFileSchema,
   type FindingsFile,
+  type Finding,
   type RunMode,
 } from "./schema/finding.js";
 import { TOOL_NAME, TOOL_VERSION } from "./version.js";
@@ -14,9 +15,10 @@ export interface PipelineInput {
   provider?: ModelProvider;
   startedAt?: Date;
   runId?: string;
+  findings?: readonly Finding[];
 }
 
-/** Empty pipeline: no model calls, no findings. */
+/** Assemble the run envelope for confirmed findings. */
 export function runPipeline(input: PipelineInput): FindingsFile {
   const run: FindingsFile["run"] = {
     id: input.runId ?? randomUUID(),
@@ -32,6 +34,6 @@ export function runPipeline(input: PipelineInput): FindingsFile {
     schema_version: SCHEMA_VERSION,
     tool: { name: TOOL_NAME, version: TOOL_VERSION },
     run,
-    findings: [],
+    findings: input.findings ?? [],
   });
 }

@@ -159,6 +159,7 @@ async function runScan(
   providerFlag: string | undefined,
   modelFlag: string | undefined,
   io: CliIo,
+  validate = true,
 ): Promise<number> {
   const cwd = io.cwd ?? process.cwd();
   const outDir = resolve(cwd, out);
@@ -175,6 +176,7 @@ async function runScan(
       cwd,
       outDir,
       provider,
+      validate,
     });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
@@ -244,6 +246,7 @@ async function runPr(
   providerFlag: string | undefined,
   modelFlag: string | undefined,
   io: CliIo,
+  validate = true,
 ): Promise<number> {
   const github = githubPullRequestMessage(source);
   if (github !== undefined) {
@@ -300,6 +303,7 @@ async function runPr(
       parsed,
       context,
       provider,
+      validate,
     });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
@@ -336,6 +340,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
 
   program
     .command("scan")
+    .option("--no-validate", "skip validation and write candidates only")
     .description(
       "Inventory a directory, hunt authz/IDOR, injection, secrets, and SSRF candidates, and write findings, report, SARIF, candidates, architecture, and coverage",
     )
@@ -343,14 +348,19 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .option("-o, --out <dir>", "output directory", "./faultline-out")
     .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
     .option("--model <id>", "model id (overrides FAULTLINE_MODEL)")
-    .action(async (target: string, opts: { out: string; provider?: string; model?: string }) => {
-      code = await runScan(target, opts.out, opts.provider, opts.model, io);
-    });
+    .action(
+      async (
+        target: string,
+        opts: { out: string; provider?: string; model?: string; validate: boolean },
+      ) => {
+        code = await runScan(target, opts.out, opts.provider, opts.model, io, opts.validate);
+      },
+    );
 
   program
     .command("bench")
     .description(
-      "Scan a directory and score candidates or findings against truth.json. Does not promote candidates",
+      "Scan a directory and score candidates or findings against truth.json. Findings stage runs validation",
     )
     .argument("<dir>", "directory that contains the app and, by default, truth.json")
     .option("-o, --out <dir>", "output directory", "./faultline-bench")
@@ -381,6 +391,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
 
   program
     .command("pr")
+    .option("--no-validate", "skip validation and write candidates only")
     .description(
       "Hunt changed lines in a unified diff and write findings, report, SARIF, candidates, architecture, and coverage",
     )
@@ -393,7 +404,14 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .action(
       async (
         source: string,
-        opts: { out: string; repo: string; context: string; provider?: string; model?: string },
+        opts: {
+          out: string;
+          repo: string;
+          context: string;
+          provider?: string;
+          model?: string;
+          validate: boolean;
+        },
       ) => {
         code = await runPr(
           source,
@@ -403,6 +421,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
           opts.provider,
           opts.model,
           io,
+          opts.validate,
         );
       },
     );

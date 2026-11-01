@@ -1,3 +1,4 @@
+import type { DisprovedCandidate } from "./validator/index.js";
 import { DEFAULT_HUNK_CONTEXT } from "./pr/diff.js";
 import {
   SEVERITIES,
@@ -87,6 +88,7 @@ function renderFinding(finding: Finding, index: number): string[] {
 export interface ReportOptions {
   /** When set, the report records the count and no candidate details. */
   unvalidatedCandidates?: number;
+  disproved?: readonly DisprovedCandidate[];
   /** Set for a PR-scoped run, including when the diff changes no files. */
   changedFiles?: readonly string[];
   /** Lines of context used for hunk overlap. Reported only when `changedFiles` is set. */
@@ -142,11 +144,19 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
 
   if (file.findings.length === 0) {
     lines.push("No confirmed findings.", "");
-    return lines.join("\n");
   }
 
   for (const [index, finding] of file.findings.entries()) {
     lines.push(...renderFinding(finding, index));
+  }
+  if (options.disproved !== undefined && options.disproved.length > 0) {
+    lines.push("", "## Disproved or inconclusive candidates", "");
+    for (const item of options.disproved) {
+      lines.push(
+        `- \`${locationLabel(item.candidate.location)}\` (${item.verdict}): ${item.reason}`,
+      );
+    }
+    lines.push("");
   }
   return lines.join("\n");
 }
