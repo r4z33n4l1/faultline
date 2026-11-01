@@ -102,7 +102,17 @@ it("accepts hunted and skipped rows and rejects a bad ledger", () => {
     schema_version: "1",
     target: ".",
     units: [fileUnit, routeUnit],
+    skipped: [{ path: "frontend/src/assets/logo.png", reason: "default-exclude" }],
   });
   expect(file.units).toHaveLength(2);
+  expect(file.skipped).toEqual([
+    { path: "frontend/src/assets/logo.png", reason: "default-exclude" },
+  ]);
   expect(coverageFileSchema.safeParse({ ...file, extra: true }).success).toBe(false);
+  expect(
+    coverageFileSchema.safeParse({ schema_version: "1", target: ".", units: [fileUnit] }).success,
+  ).toBe(false);
+  expect(coverageFileSchema.safeParse({ ...file, skipped: [{ path: "a.ts" }] }).success).toBe(
+    false,
+  );
 });

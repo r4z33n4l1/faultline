@@ -115,4 +115,3 @@ CI checks the public corpus manifest, citations, and excluded lists without chec
 - Interprocedural taint, a JavaScript parser, or executing the app
 - A leaderboard, or a CI gate on recall or score
 - Running Cloudflare security-audit, Strix, or Vercel Agent (SARIF import only)
-- Raising the inventory cap so a Juice Shop scan is not truncated

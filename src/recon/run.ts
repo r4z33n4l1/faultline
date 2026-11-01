@@ -15,7 +15,7 @@ import {
   serializeCoverage,
   type CoverageMark,
 } from "./coverage.js";
-import { collectInventory } from "./inventory.js";
+import { collectInventory, inventoryCapNote, type CollectOptions } from "./inventory.js";
 
 export interface ScanRequest {
   target: string;
@@ -23,6 +23,8 @@ export interface ScanRequest {
   outDir: string;
   provider?: ModelProvider;
   validate?: boolean;
+  /** Include and exclude globs, and file or byte caps. Defaults apply when omitted. */
+  inventory?: CollectOptions;
   startedAt?: Date;
   runId?: string;
 }
@@ -42,7 +44,12 @@ export async function runHunters(ctx: HunterContext): Promise<Candidate[]> {
 
 export async function executeScan(request: ScanRequest): Promise<void> {
   const abs = resolve(request.cwd, request.target);
-  const inventory = await collectInventory(abs, { target: request.target });
+  const inventory = await collectInventory(abs, {
+    target: request.target,
+    limits: request.inventory?.limits,
+    include: request.inventory?.include,
+    exclude: request.inventory?.exclude,
+  });
   const architecture = await renderArchitecture(inventory, request.provider);
   const startedAt = request.startedAt ?? new Date();
   const runId = request.runId ?? randomUUID();
@@ -76,6 +83,7 @@ export async function executeScan(request: ScanRequest): Promise<void> {
     scanRoot: abs,
     unvalidatedCandidates: request.validate === false ? candidates.length : 0,
     disproved: validation.disproved,
+    inventoryNote: inventoryCapNote(inventory),
   });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");
   await writeFile(join(request.outDir, "coverage.json"), serializeCoverage(coverage), "utf8");

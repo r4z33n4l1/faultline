@@ -1,6 +1,22 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
+import type { CoverageSkipReason } from "../schema/coverage.js";
 import { isIgnored, parseGitignore, type IgnoreLayer } from "./gitignore.js";
+import {
+  includeForcesDescent,
+  isDefaultSkipDir,
+  isFrontendAssetPath,
+  isMinifiedName,
+  isSnapshotPath,
+  looksMinified,
+  matchesAnyGlob,
+  pathPriority,
+  pathUnderDefaultSkip,
+  sniffServerImports,
+  type InventorySkip,
+} from "./select.js";
+
+export type { InventorySkip };
 
 export interface InventoryLimits {
   maxFiles: number;
@@ -9,8 +25,8 @@ export interface InventoryLimits {
 }
 
 export const DEFAULT_LIMITS: InventoryLimits = {
-  maxFiles: 500,
-  maxBytes: 1_000_000,
+  maxFiles: 5_000,
+  maxBytes: 8_000_000,
   maxFileBytes: 128_000,
 };
 
@@ -36,28 +52,21 @@ export interface Inventory {
   outbound_http: InventoryMatch[];
   env_files: string[];
   config_files: string[];
+  /** Paths not read, with the reason. Omitted from the model-facing inventory JSON. */
+  skipped: InventorySkip[];
+  /** Limits used for this run. Omitted from the model-facing inventory JSON. */
+  limits: InventoryLimits;
 }
 
 export interface CollectOptions {
   /** Label stored on the inventory. Defaults to `root`. */
   target?: string;
   limits?: Partial<InventoryLimits>;
+  /** Re-include a path dropped by a default exclude, gitignore, or `--exclude`. */
+  include?: readonly string[];
+  /** Extra globs to skip. An `--include` match wins. */
+  exclude?: readonly string[];
 }
-
-const SKIP_DIRS = new Set([
-  "node_modules",
-  "vendor",
-  "bower_components",
-  "build",
-  "dist",
-  "coverage",
-  "target",
-  ".git",
-  "__pycache__",
-  ".venv",
-  "venv",
-  ".next",
-]);
 
 const LANGUAGE_BY_EXT: Record<string, string> = {
   ".ts": "TypeScript",
@@ -255,10 +264,17 @@ const ROUTE_RULES: { pattern: RegExp; note: (match: RegExpMatchArray) => string 
 
 const MAX_MATCHES = 200;
 
+interface CandidateFile {
+  abs: string;
+  rel: string;
+  size: number;
+}
+
 interface State {
   limits: InventoryLimits;
+  include: readonly string[];
+  exclude: readonly string[];
   truncated: boolean;
-  stopped: boolean;
   reads: number;
   filesRead: number;
   bytesRead: number;
@@ -273,6 +289,9 @@ interface State {
   outbound: InventoryMatch[];
   envFiles: string[];
   configFiles: string[];
+  skipped: InventorySkip[];
+  skipKeys: Set<string>;
+  candidates: CandidateFile[];
 }
 
 function compareString(left: string, right: string): number {
@@ -324,11 +343,16 @@ function limitsFrom(override: Partial<InventoryLimits> | undefined): InventoryLi
   };
 }
 
-function createState(limits: InventoryLimits): State {
+function createState(
+  limits: InventoryLimits,
+  include: readonly string[],
+  exclude: readonly string[],
+): State {
   return {
     limits,
+    include,
+    exclude,
     truncated: false,
-    stopped: false,
     reads: 0,
     filesRead: 0,
     bytesRead: 0,
@@ -343,7 +367,22 @@ function createState(limits: InventoryLimits): State {
     outbound: [],
     envFiles: [],
     configFiles: [],
+    skipped: [],
+    skipKeys: new Set(),
+    candidates: [],
   };
+}
+
+function recordSkip(state: State, path: string, reason: CoverageSkipReason): void {
+  const key = `${reason}\0${path}`;
+  if (state.skipKeys.has(key)) {
+    return;
+  }
+  state.skipKeys.add(key);
+  state.skipped.push({ path, reason });
+  if (reason === "max-files" || reason === "max-bytes" || reason === "max-file-bytes") {
+    state.truncated = true;
+  }
 }
 
 function pushMatch(list: InventoryMatch[], match: InventoryMatch, state: State): void {
@@ -488,25 +527,47 @@ function scanSource(rel: string, text: string, state: State): void {
   }
 }
 
-async function considerFile(abs: string, rel: string, state: State): Promise<void> {
-  if (state.stopped) {
-    return;
-  }
-  if (isEnvFile(rel)) {
-    state.envFiles.push(rel);
-    return;
-  }
-  if (isConfigFile(rel)) {
-    state.configFiles.push(rel);
-    return;
+const MANIFEST_NAMES = new Set(Object.keys(MANIFEST_KINDS));
+const IMPORT_SCORE = 80;
+const PATH_SCORE_SNIFF_BELOW = 100;
+
+function included(state: State, rel: string): boolean {
+  return state.include.length > 0 && matchesAnyGlob(state.include, rel);
+}
+
+async function queueFile(abs: string, rel: string, state: State, forced: boolean): Promise<void> {
+  if (!forced) {
+    if (isEnvFile(rel)) {
+      state.envFiles.push(rel);
+      return;
+    }
+    if (isConfigFile(rel)) {
+      state.configFiles.push(rel);
+      return;
+    }
+    const base = basename(rel);
+    if (LOCKFILES.has(base)) {
+      recordSkip(state, rel, "lockfile");
+      return;
+    }
+    if (isMinifiedName(rel)) {
+      recordSkip(state, rel, "minified");
+      return;
+    }
+    if (BINARY_EXTENSIONS.has(extension(rel))) {
+      recordSkip(state, rel, "binary");
+      return;
+    }
   }
   const base = basename(rel);
-  if (LOCKFILES.has(base) || BINARY_EXTENSIONS.has(extension(rel))) {
-    return;
-  }
   const manifestKind = MANIFEST_KINDS[base];
   const language = LANGUAGE_BY_EXT[extension(rel)];
   if (manifestKind === undefined && language === undefined) {
+    if (forced && isEnvFile(rel)) {
+      state.envFiles.push(rel);
+    } else if (forced && isConfigFile(rel)) {
+      state.configFiles.push(rel);
+    }
     return;
   }
   const info = await stat(abs);
@@ -514,15 +575,18 @@ async function considerFile(abs: string, rel: string, state: State): Promise<voi
     return;
   }
   if (info.size > state.limits.maxFileBytes) {
-    state.truncated = true;
+    recordSkip(state, rel, "max-file-bytes");
     return;
   }
-  if (state.reads >= state.limits.maxFiles || state.bytesRead + info.size > state.limits.maxBytes) {
-    state.truncated = true;
-    state.stopped = true;
+  if (!forced && language !== undefined && (await looksMinified(abs, info.size, rel))) {
+    recordSkip(state, rel, "minified");
     return;
   }
-  const buffer = await readFile(abs);
+  state.candidates.push({ abs, rel, size: info.size });
+}
+
+async function readCandidate(candidate: CandidateFile, state: State): Promise<void> {
+  const buffer = await readFile(candidate.abs);
   state.reads += 1;
   state.bytesRead += buffer.length;
   if (buffer.includes(0)) {
@@ -530,8 +594,11 @@ async function considerFile(abs: string, rel: string, state: State): Promise<voi
   }
   state.filesRead += 1;
   const text = buffer.toString("utf8");
+  const base = basename(candidate.rel);
+  const manifestKind = MANIFEST_KINDS[base];
+  const language = LANGUAGE_BY_EXT[extension(candidate.rel)];
   if (manifestKind !== undefined) {
-    state.manifests.push({ path: rel, kind: manifestKind });
+    state.manifests.push({ path: candidate.rel, kind: manifestKind });
     for (const name of frameworksInText(text)) {
       state.frameworks.add(name);
     }
@@ -541,14 +608,57 @@ async function considerFile(abs: string, rel: string, state: State): Promise<voi
   }
   if (language !== undefined) {
     state.languages.set(language, (state.languages.get(language) ?? 0) + 1);
-    state.sourceFiles.push(rel);
+    state.sourceFiles.push(candidate.rel);
     if (ENTRY_BASENAMES.has(base)) {
-      addEntrypoint(state, rel, "filename");
+      addEntrypoint(state, candidate.rel, "filename");
     }
     if (isAuthFilename(base)) {
-      pushMatch(state.auth, { path: rel, line: 1, note: "filename" }, state);
+      pushMatch(state.auth, { path: candidate.rel, line: 1, note: "filename" }, state);
     }
-    scanSource(rel, text, state);
+    scanSource(candidate.rel, text, state);
+  }
+}
+
+async function orderCandidates(
+  candidates: readonly CandidateFile[],
+  sniff: boolean,
+): Promise<CandidateFile[]> {
+  const scored: { item: CandidateFile; score: number }[] = [];
+  for (const item of candidates) {
+    let score = pathPriority(item.rel, ENTRY_BASENAMES, MANIFEST_NAMES);
+    if (
+      sniff &&
+      score < PATH_SCORE_SNIFF_BELOW &&
+      LANGUAGE_BY_EXT[extension(item.rel)] !== undefined
+    ) {
+      if (await sniffServerImports(item.abs)) {
+        score += IMPORT_SCORE;
+      }
+    }
+    scored.push({ item, score });
+  }
+  scored.sort(
+    (left, right) => right.score - left.score || compareString(left.item.rel, right.item.rel),
+  );
+  return scored.map((entry) => entry.item);
+}
+
+async function admitCandidates(state: State): Promise<void> {
+  const totalBytes = state.candidates.reduce((sum, item) => sum + item.size, 0);
+  const overBudget =
+    state.candidates.length > state.limits.maxFiles || totalBytes > state.limits.maxBytes;
+  // Priority order also applies under the file budget, so the match cap keeps server routes.
+  const ordered = await orderCandidates(state.candidates, overBudget);
+  for (const candidate of ordered) {
+    if (state.reads >= state.limits.maxFiles) {
+      recordSkip(state, candidate.rel, "max-files");
+      continue;
+    }
+    if (state.bytesRead + candidate.size > state.limits.maxBytes) {
+      recordSkip(state, candidate.rel, "max-bytes");
+      continue;
+    }
+    await readCandidate(candidate, state);
   }
 }
 
@@ -557,10 +667,8 @@ async function walk(
   relDir: string,
   layers: readonly IgnoreLayer[],
   state: State,
+  constrained: boolean,
 ): Promise<void> {
-  if (state.stopped) {
-    return;
-  }
   let nextLayers = layers;
   try {
     const text = await readFile(join(absDir, ".gitignore"), "utf8");
@@ -573,28 +681,102 @@ async function walk(
   const entries = await readdir(absDir, { withFileTypes: true });
   entries.sort((left, right) => compareString(left.name, right.name));
   for (const entry of entries) {
-    if (state.stopped) {
-      return;
-    }
     const rel = relDir === "" ? entry.name : `${relDir}/${entry.name}`;
     if (entry.isSymbolicLink()) {
       continue;
     }
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name) || isIgnored(nextLayers, rel, true)) {
-        continue;
-      }
-      await walk(join(absDir, entry.name), rel, nextLayers, state);
+      await walkDirectory(
+        join(absDir, entry.name),
+        rel,
+        entry.name,
+        nextLayers,
+        state,
+        constrained,
+      );
       continue;
     }
     if (!entry.isFile()) {
       continue;
     }
-    if (isIgnored(nextLayers, rel, false)) {
-      continue;
-    }
-    await considerFile(join(absDir, entry.name), rel, state);
+    await walkFile(join(absDir, entry.name), rel, nextLayers, state, constrained);
   }
+}
+
+async function walkDirectory(
+  abs: string,
+  rel: string,
+  name: string,
+  layers: readonly IgnoreLayer[],
+  state: State,
+  constrained: boolean,
+): Promise<void> {
+  const forced = included(state, rel) || includeForcesDescent(rel, state.include);
+  const denylisted = isDefaultSkipDir(name) || isFrontendAssetPath(rel) || isSnapshotPath(rel);
+  const ignored = isIgnored(layers, rel, true);
+  if (constrained) {
+    if (forced) {
+      await walk(abs, rel, layers, state, true);
+    }
+    return;
+  }
+  if (forced) {
+    await walk(abs, rel, layers, state, denylisted || ignored);
+    return;
+  }
+  if (isDefaultSkipDir(name) || isFrontendAssetPath(rel)) {
+    recordSkip(state, rel, "default-exclude");
+    return;
+  }
+  if (isSnapshotPath(rel)) {
+    recordSkip(state, rel, "snapshot");
+    return;
+  }
+  if (ignored) {
+    recordSkip(state, rel, "gitignore");
+    return;
+  }
+  if (matchesAnyGlob(state.exclude, rel)) {
+    recordSkip(state, rel, "exclude");
+    return;
+  }
+  await walk(abs, rel, layers, state, false);
+}
+
+async function walkFile(
+  abs: string,
+  rel: string,
+  layers: readonly IgnoreLayer[],
+  state: State,
+  constrained: boolean,
+): Promise<void> {
+  if (constrained) {
+    if (included(state, rel)) {
+      await queueFile(abs, rel, state, true);
+    }
+    return;
+  }
+  if (included(state, rel)) {
+    await queueFile(abs, rel, state, true);
+    return;
+  }
+  if (matchesAnyGlob(state.exclude, rel)) {
+    recordSkip(state, rel, "exclude");
+    return;
+  }
+  if (pathUnderDefaultSkip(rel) || isFrontendAssetPath(rel)) {
+    recordSkip(state, rel, "default-exclude");
+    return;
+  }
+  if (isSnapshotPath(rel)) {
+    recordSkip(state, rel, "snapshot");
+    return;
+  }
+  if (isIgnored(layers, rel, false)) {
+    recordSkip(state, rel, "gitignore");
+    return;
+  }
+  await queueFile(abs, rel, state, false);
 }
 
 function sortedMatches(list: readonly InventoryMatch[]): InventoryMatch[] {
@@ -632,11 +814,59 @@ function finish(target: string, state: State): Inventory {
     outbound_http: sortedMatches(state.outbound),
     env_files: [...state.envFiles].sort(compareString),
     config_files: [...state.configFiles].sort(compareString),
+    skipped: [...state.skipped].sort(
+      (left, right) =>
+        compareString(left.path, right.path) || compareString(left.reason, right.reason),
+    ),
+    limits: state.limits,
   };
 }
 
+/** Inventory JSON passed to a model. Skip paths and limits stay out of that prompt. */
 export function serializeInventory(inventory: Inventory): string {
-  return JSON.stringify(inventory, null, 2);
+  const publicInventory = {
+    target: inventory.target,
+    truncated: inventory.truncated,
+    files_read: inventory.files_read,
+    bytes_read: inventory.bytes_read,
+    languages: inventory.languages,
+    manifests: inventory.manifests,
+    frameworks: inventory.frameworks,
+    entrypoints: inventory.entrypoints,
+    source_files: inventory.source_files,
+    routes: inventory.routes,
+    auth: inventory.auth,
+    data_stores: inventory.data_stores,
+    outbound_http: inventory.outbound_http,
+    env_files: inventory.env_files,
+    config_files: inventory.config_files,
+  };
+  return JSON.stringify(publicInventory, null, 2);
+}
+
+const CAP_REASONS = new Set<CoverageSkipReason>(["max-files", "max-bytes", "max-file-bytes"]);
+
+/** Sentence for report.md when a file or byte cap left paths unread. */
+export function inventoryCapNote(inventory: Inventory): string | undefined {
+  const capped = inventory.skipped.filter((item) => CAP_REASONS.has(item.reason));
+  if (capped.length === 0) {
+    return undefined;
+  }
+  const reasons = [...new Set(capped.map((item) => item.reason))].sort();
+  const noun = capped.length === 1 ? "path was" : "paths were";
+  return [
+    `Inventory caps bound (${reasons.join(", ")}):`,
+    `max-files ${inventory.limits.maxFiles},`,
+    `max-bytes ${inventory.limits.maxBytes}.`,
+    `${capped.length} ${noun} not read.`,
+    "Skipped paths and reasons are in coverage.json.",
+  ].join(" ");
+}
+
+export function capsBound(inventory: Inventory): boolean {
+  return inventory.skipped.some(
+    (item) => item.reason === "max-files" || item.reason === "max-bytes",
+  );
 }
 
 export async function collectInventory(root: string, options?: CollectOptions): Promise<Inventory> {
@@ -655,7 +885,8 @@ export async function collectInventory(root: string, options?: CollectOptions): 
   if (!info.isDirectory()) {
     throw new Error(`Target is not a directory: ${target}`);
   }
-  const state = createState(limits);
-  await walk(abs, "", [], state);
+  const state = createState(limits, options?.include ?? [], options?.exclude ?? []);
+  await walk(abs, "", [], state, false);
+  await admitCandidates(state);
   return finish(target, state);
 }

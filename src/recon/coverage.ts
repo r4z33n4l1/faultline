@@ -81,9 +81,15 @@ export function buildCoverage(target: string, inventory: Inventory): CoverageFil
     }
   }
   units.sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  const skipped = [...inventory.skipped].sort(
+    (left, right) =>
+      (left.path < right.path ? -1 : left.path > right.path ? 1 : 0) ||
+      (left.reason < right.reason ? -1 : left.reason > right.reason ? 1 : 0),
+  );
   return coverageFileSchema.parse({
     schema_version: COVERAGE_SCHEMA_VERSION,
     target,
     units,
+    skipped,
   });
 }

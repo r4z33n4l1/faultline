@@ -60,7 +60,7 @@ Known gaps, so a scanner hit on them is unmatched rather than a false positive:
 - DVNA does not document an SSRF, and it has no safe `execFile` next to the `exec` sink.
 - Juice Shop's leaked-API-key challenge says the leak is outside the web application. The challenge verifier embeds the expected key and is not labeled. Seeded user passwords and login verifiers are training answers, not labeled secrets. Prompt-injection chatbot challenges are not SQL, NoSQL, command, or code injection. Hidden client routes such as the admin section are not given a server-side authz row when the documented issue is the Angular path. Feedback deletion is authenticated and is treated as a follow-on of that admin UI, not a separate IDOR row.
 - Juice Shop RCE challenges are categorized by the project as insecure deserialization. Deserialization is excluded, so `routes/b2bOrder.ts` is not scored as code injection.
-- Faultline's inventory cap (500 files, 1_000_000 bytes) can truncate Juice Shop before every server file is hunted. That shows up as `inventory_truncated` on the Faultline result. Semgrep scans the tree the CLI sees. Neither run installs dependencies, so imported packages are not present.
+- Faultline's inventory defaults are 5,000 files and 8,000,000 bytes. Vendored, build, minified, snapshot, and `frontend/src/assets` paths are skipped, and server-side paths are read first when a cap binds. A cap that still binds is `inventory_truncated` on the result, with each unread path and reason in `coverage.json`. Semgrep scans the tree the CLI sees. Neither run installs dependencies, so imported packages are not present.
 
 ## Baseline
 

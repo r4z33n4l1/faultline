@@ -121,12 +121,45 @@
           }
         ]
       }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "default-exclude",
+              "gitignore",
+              "exclude",
+              "lockfile",
+              "minified",
+              "snapshot",
+              "binary",
+              "max-file-bytes",
+              "max-files",
+              "max-bytes"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
     "schema_version",
     "target",
-    "units"
+    "units",
+    "skipped"
   ],
   "additionalProperties": false
 }

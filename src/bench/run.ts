@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import type { CollectOptions } from "../recon/inventory.js";
 import { executeScan } from "../recon/run.js";
 import { candidatesFileSchema, type CandidatesFile } from "../schema/candidate.js";
 import { findingsFileSchema, formatZodIssues, type FindingsFile } from "../schema/finding.js";
@@ -30,6 +31,7 @@ export interface BenchRequest {
   provider?: ModelProvider;
   /** Model id to record. Null when this run did not call a named model. */
   model: string | null;
+  inventory?: CollectOptions;
   startedAt?: Date;
   runId?: string;
 }
@@ -238,6 +240,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
     outDir: string;
     provider?: ModelProvider;
     validate: boolean;
+    inventory?: CollectOptions;
     startedAt?: Date;
     runId?: string;
   } = {
@@ -254,6 +257,9 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
   }
   if (request.runId !== undefined) {
     scan.runId = request.runId;
+  }
+  if (request.inventory !== undefined) {
+    scan.inventory = request.inventory;
   }
   await executeScan(scan);
   const stageName = request.stage === "candidates" ? "candidates.json" : "findings.json";

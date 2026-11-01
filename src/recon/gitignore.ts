@@ -11,7 +11,7 @@ export interface IgnoreLayer {
   rules: IgnoreRule[];
 }
 
-function globToRegExp(glob: string): RegExp {
+export function globToRegExp(glob: string): RegExp {
   let source = "";
   for (let index = 0; index < glob.length; index += 1) {
     const char = glob[index];

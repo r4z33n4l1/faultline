@@ -13,10 +13,11 @@ import {
   corpusAppResult,
   corpusResultsFilename,
   corpusResultsSchema,
-  renderCorpusResultsMarkdown,
+  renderCorpusResultsDir,
   type CorpusAppResult,
   type CorpusResultsFile,
 } from "../src/bench/summary.js";
+import type { BenchStage } from "../src/bench/result.js";
 import { TOOL_VERSION } from "../src/version.js";
 
 const TRUNCATION_NOTE = "Inventory truncated at the file or byte cap.";
@@ -31,8 +32,10 @@ async function inventoryTruncated(outDir: string): Promise<boolean> {
 }
 
 /**
- * One static pass of Faultline (no provider, candidates) and Semgrep over
- * each pinned app. Writes bench/results. Does not install or run the apps.
+ * Static Faultline passes (no provider) at the candidates and findings stages,
+ * plus Semgrep unless `--faultline-only` is set. Writes bench/results.
+ * Does not install or run the apps. The markdown table includes every JSON
+ * file in bench/results, so a Semgrep file already on disk stays in the table.
  */
 async function main(): Promise<void> {
   const cwd = process.cwd();
@@ -44,24 +47,38 @@ async function main(): Promise<void> {
   }
   const now = new Date();
   const date = utcDate(now);
+  const faultlineOnly = process.argv.includes("--faultline-only");
   const bin = process.env.SEMGREP_BIN ?? "semgrep";
-  const faultlineApps: CorpusAppResult[] = [];
+  const stages: BenchStage[] = ["candidates", "findings"];
+  const faultlineByStage = new Map<BenchStage, CorpusAppResult[]>(
+    stages.map((stage) => [stage, []]),
+  );
   const semgrepApps: CorpusAppResult[] = [];
   const scratch = join(tmpdir(), `faultline-corpus-${commit.slice(0, 12)}`);
   await mkdir(scratch, { recursive: true });
   for (const app of manifest.apps) {
     const paths = await resolveCorpusPaths(cwd, manifestPath, app.name);
     await ensureCorpusCache(paths, false);
-    const faultlineOut = join(scratch, `${app.name}-faultline`);
-    const faultline = await executeBench({
-      target: paths.targetLabel,
-      cwd,
-      outDir: faultlineOut,
-      stage: "candidates",
-      truthPath: paths.truthLabel,
-      model: null,
-    });
-    faultlineApps.push(corpusAppResult(app, faultline, await inventoryTruncated(faultlineOut)));
+    for (const stage of stages) {
+      const faultlineOut = join(scratch, `${app.name}-faultline-${stage}`);
+      const faultline = await executeBench({
+        target: paths.targetLabel,
+        cwd,
+        outDir: faultlineOut,
+        stage,
+        truthPath: paths.truthLabel,
+        model: null,
+      });
+      faultlineByStage
+        .get(stage)
+        ?.push(corpusAppResult(app, faultline, await inventoryTruncated(faultlineOut)));
+      process.stdout.write(
+        `${app.name} faultline ${stage} recall ${String(faultline.overall.recall)}\n`,
+      );
+    }
+    if (faultlineOnly) {
+      continue;
+    }
     const semgrepOut = join(scratch, `${app.name}-semgrep`);
     const semgrep = await executeSemgrepBench({
       root: paths.cacheDir,
@@ -76,52 +93,57 @@ async function main(): Promise<void> {
       rulesets: manifest.semgrep.rulesets,
     });
     semgrepApps.push(corpusAppResult(app, semgrep, null));
-    process.stdout.write(
-      `${app.name} faultline recall ${String(faultline.overall.recall)} semgrep recall ${String(semgrep.overall.recall)}\n`,
-    );
+    process.stdout.write(`${app.name} semgrep recall ${String(semgrep.overall.recall)}\n`);
   }
-  const faultlineFile: CorpusResultsFile = corpusResultsSchema.parse({
-    schema_version: "1",
-    label: CORPUS_RESULTS_LABEL,
-    note: CORPUS_RESULTS_NOTE,
-    citable: false,
-    date,
-    tool: { name: "faultline", version: TOOL_VERSION },
-    model: CORPUS_RESULTS_MODEL,
-    stage: "candidates",
-    commit,
-    apps: faultlineApps,
-  });
-  const semgrepFile: CorpusResultsFile = corpusResultsSchema.parse({
-    schema_version: "1",
-    label: CORPUS_RESULTS_LABEL,
-    note: CORPUS_RESULTS_NOTE,
-    citable: false,
-    date,
-    tool: { name: "semgrep", version: manifest.semgrep.version },
-    model: CORPUS_RESULTS_MODEL,
-    stage: "scan",
-    commit,
-    rulesets: manifest.semgrep.rulesets,
-    apps: semgrepApps,
-  });
   const resultsDir = join(cwd, "bench", "results");
   await mkdir(resultsDir, { recursive: true });
-  const faultlineName = corpusResultsFilename(date, commit, "faultline", "candidates");
-  const semgrepName = corpusResultsFilename(date, commit, "semgrep", "scan");
-  await writeFile(
-    join(resultsDir, faultlineName),
-    `${JSON.stringify(faultlineFile, null, 2)}\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(resultsDir, semgrepName),
-    `${JSON.stringify(semgrepFile, null, 2)}\n`,
-    "utf8",
-  );
-  const markdown = renderCorpusResultsMarkdown([faultlineFile, semgrepFile]);
+  const written: string[] = [];
+  for (const stage of stages) {
+    const faultlineFile: CorpusResultsFile = corpusResultsSchema.parse({
+      schema_version: "1",
+      label: CORPUS_RESULTS_LABEL,
+      note: CORPUS_RESULTS_NOTE,
+      citable: false,
+      date,
+      tool: { name: "faultline", version: TOOL_VERSION },
+      model: CORPUS_RESULTS_MODEL,
+      stage,
+      commit,
+      apps: faultlineByStage.get(stage) ?? [],
+    });
+    const faultlineName = corpusResultsFilename(date, commit, "faultline", stage);
+    await writeFile(
+      join(resultsDir, faultlineName),
+      `${JSON.stringify(faultlineFile, null, 2)}\n`,
+      "utf8",
+    );
+    written.push(faultlineName);
+  }
+  if (!faultlineOnly) {
+    const semgrepFile: CorpusResultsFile = corpusResultsSchema.parse({
+      schema_version: "1",
+      label: CORPUS_RESULTS_LABEL,
+      note: CORPUS_RESULTS_NOTE,
+      citable: false,
+      date,
+      tool: { name: "semgrep", version: manifest.semgrep.version },
+      model: CORPUS_RESULTS_MODEL,
+      stage: "scan",
+      commit,
+      rulesets: manifest.semgrep.rulesets,
+      apps: semgrepApps,
+    });
+    const semgrepName = corpusResultsFilename(date, commit, "semgrep", "scan");
+    await writeFile(
+      join(resultsDir, semgrepName),
+      `${JSON.stringify(semgrepFile, null, 2)}\n`,
+      "utf8",
+    );
+    written.push(semgrepName);
+  }
+  const markdown = await renderCorpusResultsDir(resultsDir);
   await writeFile(join(resultsDir, "README.md"), markdown, "utf8");
-  process.stdout.write(`Wrote ${faultlineName} and ${semgrepName}\n`);
+  process.stdout.write(`Wrote ${written.join(" and ")}\n`);
 }
 
 const entry = process.argv[1];
