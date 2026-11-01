@@ -834,3 +834,28 @@ describe("ssrf scan output", () => {
     expect(offlineFindings).not.toContain(HOSTILE);
   });
 });
+
+describe("needle client", () => {
+  const fixture = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "outbound-app");
+
+  it("flags a request-built needle URL and skips a constant URL", async () => {
+    const inventory = await collectInventory(fixture, { target: "outbound-app" });
+    const candidates = await ssrfHunter.run({
+      root: fixture,
+      target: "outbound-app",
+      inventory,
+      markCoverage() {
+        // Coverage is not the assertion.
+      },
+    });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      class: "ssrf",
+      cwe: "CWE-918",
+      symbol: "needle.get",
+      location: { file: "src/app.ts" },
+      confidence: { level: "low", reason: HEURISTIC_CONFIDENCE_REASON },
+    });
+    expect(candidates[0]?.root_cause).toContain("GET /quote");
+  });
+});

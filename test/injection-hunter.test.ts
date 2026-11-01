@@ -746,3 +746,24 @@ describe("injection scan output", () => {
     expect(offlineFindings).not.toContain(HOSTILE);
   });
 });
+
+describe("qualified eval and query objects", () => {
+  const fixture = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "query-build-app");
+
+  it("flags qualified eval and parameter $where, and skips numeric and bound queries", async () => {
+    const inventory = await collectInventory(fixture, { target: "query-build-app" });
+    const plan = await planInjection(fixture, inventory);
+    const open = plan.sites.filter((site) => !site.mitigated);
+    const symbols = open.map((site) => `${site.symbol}@${site.line}`);
+    expect(open.some((site) => site.symbol === "eval" && site.cwe === "CWE-94")).toBe(true);
+    expect(open.some((site) => site.symbol === "$where" && site.inputs.includes("argument"))).toBe(
+      true,
+    );
+    expect(open.some((site) => site.symbol === "query" && site.cwe === "CWE-89")).toBe(true);
+    expect(symbols.filter((item) => item.startsWith("eval@"))).toHaveLength(1);
+    expect(open.some((site) => site.route === "POST /total")).toBe(false);
+    expect(open.some((site) => site.route === "POST /lookup-safe")).toBe(false);
+    const safeWhere = plan.sites.filter((site) => site.symbol === "$where");
+    expect(safeWhere).toHaveLength(1);
+  });
+});

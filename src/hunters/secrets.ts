@@ -184,6 +184,9 @@ export type SecretKind =
   | "private-key"
   | "jwt-signing-secret"
   | "high-entropy-assignment"
+  | "credential-literal"
+  | "cleartext-field"
+  | "query-log"
   | "logged-secret"
   | "env-file";
 
@@ -348,6 +351,55 @@ function entropy(value: string): number {
   return bits;
 }
 
+const PII_PROP =
+  /^(?:ssn|socialSecurityNumber|creditCard|creditCardNumber|cardNumber|cvv|cvc|bankAccount|bankAcc|bankRouting|routingNumber|dob|dateOfBirth)$/i;
+
+const ENCRYPTED_RHS =
+  /\b(?:encrypt|hash|hashSync|bcrypt|scrypt|argon2|createCipher|createCipheriv|createHmac|publicEncrypt|seal)\s*\(/i;
+
+const STORE_NEAR =
+  /\.(?:insert|insertOne|insertMany|update|updateOne|updateMany|save|create|findOneAndUpdate|replaceOne)\s*\(|\b(?:insert|save|upsert)\s*\(/;
+
+function isCredentialLiteral(name: string, value: string): boolean {
+  if (value.length < 12 || isPlaceholder(value) || matchesKnownFormat(value)) {
+    return false;
+  }
+  const parts = splitName(name);
+  const has = (word: string): boolean => parts.includes(word);
+  if ((has("cookie") || has("session")) && (has("secret") || has("key"))) {
+    return true;
+  }
+  if (
+    (has("crypto") || has("cipher") || has("encryption") || has("hmac") || has("signing")) &&
+    has("key")
+  ) {
+    return true;
+  }
+  return parts.length === 1 && parts[0] === "secret";
+}
+
+function rawSensitiveField(line: string): { name: string; rhs: string } | undefined {
+  const prop = /\b[A-Za-z_$][\w$]*\s*\.\s*([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+)/.exec(line);
+  const name = prop?.[1];
+  const rhs = prop?.[2]?.trim();
+  if (name === undefined || rhs === undefined || !PII_PROP.test(name) || ENCRYPTED_RHS.test(rhs)) {
+    return undefined;
+  }
+  if (/^(?:await\s+)?[A-Za-z_$][\w$]*$/.test(rhs)) {
+    return { name, rhs };
+  }
+  if (/^(?:req|request)\s*(?:\?\.)?\s*\.\s*(?:body|query|params|session)\b/.test(rhs)) {
+    return { name, rhs };
+  }
+  return undefined;
+}
+
+function nearStore(lines: readonly string[], index: number): boolean {
+  const start = Math.max(0, index - 25);
+  const end = Math.min(lines.length, index + 35);
+  return STORE_NEAR.test(lines.slice(start, end).join("\n"));
+}
+
 function isHighEntropy(value: string): boolean {
   if (value.length < 16 || value.length > 200) {
     return false;
@@ -443,6 +495,15 @@ function kindLabel(kind: SecretKind): string {
   if (kind === "jwt-signing-secret") {
     return "JWT signing secret";
   }
+  if (kind === "credential-literal") {
+    return "hardcoded credential";
+  }
+  if (kind === "cleartext-field") {
+    return "cleartext sensitive field";
+  }
+  if (kind === "query-log") {
+    return "query log";
+  }
   if (kind === "logged-secret") {
     return "logged secret";
   }
@@ -502,6 +563,82 @@ function remember(redactions: string[], observed: Set<string>, value: string): v
   }
   redactions.push(value);
   observed.add(value);
+}
+
+function extractBalanced(source: string, parenIndex: number): { text: string; endIndex: number } {
+  let depth = 0;
+  let quote: "'" | '"' | "`" | undefined;
+  let escaped = false;
+  const limit = Math.min(source.length, parenIndex + 2_000);
+  for (let index = parenIndex; index < limit; index += 1) {
+    const ch = source[index] ?? "";
+    if (quote !== undefined) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") {
+      depth += 1;
+    } else if (ch === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return { text: source.slice(parenIndex, index + 1), endIndex: index };
+      }
+    }
+  }
+  return { text: source.slice(parenIndex, limit), endIndex: Math.max(parenIndex, limit - 1) };
+}
+
+function splitTopLevel(callInner: string): string[] {
+  const args: string[] = [];
+  let depth = 0;
+  let quote: "'" | '"' | "`" | undefined;
+  let escaped = false;
+  let start = 0;
+  for (let index = 0; index < callInner.length; index += 1) {
+    const ch = callInner[index] ?? "";
+    if (quote !== undefined) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(" || ch === "[" || ch === "{") {
+      depth += 1;
+    } else if (ch === ")" || ch === "]" || ch === "}") {
+      depth = Math.max(0, depth - 1);
+    } else if (ch === "," && depth === 0) {
+      args.push(callInner.slice(start, index));
+      start = index + 1;
+    }
+  }
+  args.push(callInner.slice(start));
+  return args;
 }
 
 function pushHit(hits: RawHit[], taken: Set<number>, hit: RawHit): void {
@@ -583,7 +720,8 @@ function scanText(text: string): { hits: RawHit[]; redactions: string[]; observe
       continue;
     }
     const sensitive = isSensitiveName(found.name) || isJwtSecretName(found.name);
-    if (!sensitive) {
+    const credential = isCredentialLiteral(found.name, found.value);
+    if (!sensitive && !credential) {
       continue;
     }
     assigned.set(found.name, found.value);
@@ -616,6 +754,63 @@ function scanText(text: string): { hits: RawHit[]; redactions: string[]; observe
         severity: "medium",
       });
     }
+    if (credential) {
+      pushHit(hits, taken, {
+        line: index + 1,
+        hitEndLine: index + 1,
+        kind: "credential-literal",
+        cwe: "CWE-798",
+        symbol: found.name,
+        fingerprint: secretFingerprint(found.value),
+        knownFormat: false,
+        severity: "medium",
+      });
+    }
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (taken.has(index + 1) || !nearStore(lines, index)) {
+      continue;
+    }
+    const field = rawSensitiveField(lines[index] ?? "");
+    if (field === undefined) {
+      continue;
+    }
+    pushHit(hits, taken, {
+      line: index + 1,
+      hitEndLine: index + 1,
+      kind: "cleartext-field",
+      cwe: "CWE-312",
+      symbol: field.name,
+      knownFormat: false,
+      severity: "medium",
+    });
+  }
+
+  for (const match of normalized.matchAll(/new\s+Sequelize\s*\(/g)) {
+    if (match.index === undefined) {
+      continue;
+    }
+    const paren = match.index + match[0].length - 1;
+    const extracted = extractBalanced(normalized, paren);
+    const inner = extracted.text.slice(1, extracted.text.endsWith(")") ? -1 : undefined);
+    const args = splitTopLevel(inner);
+    const password =
+      args.length >= 3 || args.some((arg) => /\bpassword\b/i.test(arg) || /\bpasswd\b/i.test(arg));
+    const options = args.at(-1) ?? "";
+    if (!password || /logging\s*:\s*(?:false|null)\b/.test(options)) {
+      continue;
+    }
+    const line = lineAt(normalized, match.index);
+    pushHit(hits, taken, {
+      line,
+      hitEndLine: lineAt(normalized, extracted.endIndex),
+      kind: "query-log",
+      cwe: "CWE-532",
+      symbol: "Sequelize",
+      knownFormat: false,
+      severity: "medium",
+    });
   }
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -787,6 +982,12 @@ function heuristicCandidate(site: SecretSite): Candidate {
     rootCause = `${site.file} passes a secret to a logger`;
   } else if (site.kind === "jwt-signing-secret") {
     rootCause = `${site.file} assigns a JWT signing secret to a literal`;
+  } else if (site.kind === "credential-literal") {
+    rootCause = `${site.file} assigns a credential literal to ${site.symbol}`;
+  } else if (site.kind === "cleartext-field") {
+    rootCause = `${site.file} stores ${site.symbol} without encryption before a write`;
+  } else if (site.kind === "query-log") {
+    rootCause = `${site.file} constructs a database client that logs queries and receives a password`;
   } else if (site.kind === "high-entropy-assignment") {
     rootCause = `${site.file} assigns a high-entropy string to a sensitive name`;
   } else {
@@ -801,14 +1002,30 @@ function heuristicCandidate(site: SecretSite): Candidate {
             note: "Committed env file recorded by name only. Contents were not read.",
           },
         ]
-      : [
-          { file: site.file, line: site.line, note: fingerprintNote },
-          {
-            file: site.file,
-            line: site.line,
-            note: site.knownFormat ? "Known credential format." : "Heuristic secret pattern.",
-          },
-        ];
+      : site.kind === "cleartext-field"
+        ? [
+            {
+              file: site.file,
+              line: site.line,
+              note: "Sensitive field is written without an encryption or hash call.",
+            },
+          ]
+        : site.kind === "query-log"
+          ? [
+              {
+                file: site.file,
+                line: site.line,
+                note: "Database client receives a password and does not disable query logging.",
+              },
+            ]
+          : [
+              { file: site.file, line: site.line, note: fingerprintNote },
+              {
+                file: site.file,
+                line: site.line,
+                note: site.knownFormat ? "Known credential format." : "Heuristic secret pattern.",
+              },
+            ];
   const candidate: Candidate = {
     class: "secrets",
     cwe: site.cwe,

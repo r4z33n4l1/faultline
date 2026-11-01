@@ -686,3 +686,26 @@ describe("secrets scan output", () => {
     expect(offlineSarif).not.toContain("CWE-532");
   });
 });
+
+describe("credential literals and cleartext fields", () => {
+  const fixture = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "credential-app");
+
+  it("flags session secrets, crypto keys, query logging, and raw ssn, not encrypted or example values", async () => {
+    const inventory = await collectInventory(fixture, { target: "credential-app" });
+    const candidates = await secretsHunter.run({
+      root: fixture,
+      target: "credential-app",
+      inventory,
+      markCoverage() {
+        // Coverage is not the assertion.
+      },
+    });
+    const symbols = candidates.map((candidate) => candidate.symbol).sort();
+    expect(symbols).toEqual(["Sequelize", "cookieSecret", "cryptoKey", "secret", "ssn"]);
+    expect(candidates.every((candidate) => candidate.confidence.level === "low")).toBe(true);
+    expect(JSON.stringify(candidates)).not.toContain("example-secret-value");
+    expect(JSON.stringify(candidates)).not.toContain("keyboard cat");
+    expect(candidates.find((candidate) => candidate.symbol === "ssn")?.cwe).toBe("CWE-312");
+    expect(candidates.find((candidate) => candidate.symbol === "Sequelize")?.cwe).toBe("CWE-532");
+  });
+});

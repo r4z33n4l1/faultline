@@ -530,6 +530,8 @@ describe("authz/IDOR prompt", () => {
     const handler: AuthzHandler = {
       file: "src/app.ts",
       route: "GET /x/:id",
+      anchorPath: "src/app.ts",
+      anchorLine: 1,
       line: 1,
       startLine: 1,
       endLine: 3,
@@ -541,6 +543,7 @@ describe("authz/IDOR prompt", () => {
       symbol: "findUnique",
       authMiddleware: false,
       ownershipCheck: false,
+      missingRole: false,
       overCap: false,
     };
     const user = buildAuthzPrompt(handler)[1]?.content ?? "";
@@ -670,5 +673,41 @@ describe("scan output", () => {
     expect(offlineFindings).not.toContain("GET /invoices/:id");
     expect(offlineSarif).not.toContain("GET /invoices/:id");
     expect(offlineIo.stdout()).not.toContain("GET /invoices/:id");
+  });
+});
+
+describe("referenced handlers", () => {
+  const fixture = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "handler-ref-app");
+
+  it("follows router.route chains and object methods, and keeps session and role checks", async () => {
+    const inventory = await collectInventory(fixture, { target: "handler-ref-app" });
+    const candidates = await authzIdorHunter.run({
+      root: fixture,
+      target: "handler-ref-app",
+      inventory,
+      markCoverage() {
+        // Coverage is not the assertion.
+      },
+    });
+    const causes = candidates.map((candidate) => candidate.root_cause);
+    expect(causes.some((cause) => cause.includes("GET /records/:recordId"))).toBe(true);
+    expect(causes.some((cause) => cause.includes("GET /people"))).toBe(true);
+    expect(causes.some((cause) => cause.includes("DELETE /records/:recordId"))).toBe(false);
+    expect(causes.some((cause) => cause.includes("GET /mine"))).toBe(false);
+    const idor = candidates.find((candidate) =>
+      candidate.root_cause.includes("/records/:recordId"),
+    );
+    expect(idor).toMatchObject({
+      class: "authz_idor",
+      cwe: "CWE-639",
+      location: { file: "src/records.ts" },
+      confidence: { level: "low", reason: HEURISTIC_CONFIDENCE_REASON },
+    });
+    const missing = candidates.find((candidate) => candidate.root_cause.includes("GET /people"));
+    expect(missing).toMatchObject({
+      cwe: "CWE-862",
+      location: { file: "src/routes.ts" },
+    });
+    expect(missing?.root_cause).toContain("no role check");
   });
 });

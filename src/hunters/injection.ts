@@ -38,7 +38,7 @@ export const SKIP_PARAMETERIZED = "query uses bound parameters";
 export const SKIP_CAP = "injection sink cap reached";
 export const SKIP_UNREADABLE = "handler source could not be read";
 
-const INPUT_KINDS = ["params", "query", "body", "headers"] as const;
+const INPUT_KINDS = ["params", "query", "body", "headers", "argument"] as const;
 type InputKind = (typeof INPUT_KINDS)[number];
 
 export type InjectionKind = "sql" | "nosql" | "command" | "code" | "template";
@@ -762,6 +762,9 @@ function sinkHits(source: string): SinkHit[] {
   take(/\bnew\s+vm\.Script\s*\(/g, "code", "CWE-94", "code");
   take(/\bnew\s+Function\s*\(/g, "code", "CWE-94", "code");
   take(/(?<![\w$.])eval\s*\(/g, "code", "CWE-94", "code");
+  take(/\.\s*eval\s*\(/g, "code", "CWE-94", "code");
+  take(/\.\s*evaluate\s*\(/g, "code", "CWE-94", "code");
+  take(/(?<![\w$.])Function\s*\(/g, "code", "CWE-94", "code");
   take(/(?<![\w$])execSync\s*\(/g, "command", "CWE-78", "command", true);
   take(/(?<![\w$])exec(?!File|Sync)\s*\(/g, "command", "CWE-78", "command", true);
   take(/(?<![\w$])spawnSync\s*\(/g, "command", "CWE-78", "command", true);
@@ -774,6 +777,71 @@ function sinkHits(source: string): SinkHit[] {
 
 function inputsFor(callInner: string, bindings: ReadonlyMap<string, Binding>): InputKind[] {
   return collectInputs(callInner, bindings);
+}
+
+function numericExpr(expr: string, bindings: ReadonlyMap<string, Binding>): boolean {
+  const trimmed = expr.trim();
+  if (/^(?:parseInt|parseFloat|Number|Math\.floor)\s*\(/.test(trimmed)) {
+    return true;
+  }
+  if (/^(?:0x[\da-f]+|\d+(?:\.\d+)?)$/i.test(trimmed)) {
+    return true;
+  }
+  const ident = /^([A-Za-z_$][\w$]*)$/.exec(trimmed);
+  const name = ident?.[1];
+  if (name === undefined) {
+    return false;
+  }
+  const binding = bindings.get(name);
+  return (
+    binding !== undefined && /^(?:parseInt|parseFloat|Number|Math\.floor)\s*\(/.test(binding.expr)
+  );
+}
+
+function whereValue(line: string): string | undefined {
+  const at = line.indexOf("$where");
+  if (at < 0) {
+    return undefined;
+  }
+  const rest = line.slice(at);
+  const template = /\$where\s*:\s*(`(?:\\.|[^`\\])*`)/.exec(rest);
+  if (template?.[1] !== undefined) {
+    return template[1];
+  }
+  return /\$where\s*:\s*([^,}\n]+)/.exec(rest)?.[1]?.trim();
+}
+
+/** Dynamic `$where` values, including ones closed over from a parameter. */
+function whereExprTainted(expr: string, bindings: ReadonlyMap<string, Binding>): boolean {
+  if (isAllowlistExpr(expr)) {
+    return false;
+  }
+  if (dangerousTaint(expr, bindings)) {
+    return true;
+  }
+  if (/\$\{/.test(expr)) {
+    for (const hole of expr.matchAll(/\$\{([^}]+)\}/g)) {
+      if (!numericExpr(hole[1] ?? "", bindings)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  if (/['"`]\s*\+|\+\s*['"`]/.test(expr)) {
+    const idents = [...expr.matchAll(/\b[A-Za-z_$][\w$]*\b/g)].map((item) => item[0] ?? "");
+    return idents.some((name) => name !== "this" && !numericExpr(name, bindings));
+  }
+  const ident = /^([A-Za-z_$][\w$]*)$/.exec(expr.trim());
+  const name = ident?.[1];
+  if (
+    name === undefined ||
+    numericExpr(name, bindings) ||
+    /^(?:string|number|boolean|any|unknown|object|null|undefined)$/.test(name)
+  ) {
+    return false;
+  }
+  const binding = bindings.get(name);
+  return binding === undefined || binding.tainted;
 }
 
 function inputLineFor(
@@ -854,6 +922,43 @@ function analyzeBlock(
       inputs,
       inputLine: inputLineFor(callInner, bindings, sinkLine),
       mitigated: action === "mitigated",
+    };
+    if (route !== undefined) {
+      site.route = route.route;
+      site.routeLine = route.line;
+    }
+    if (functionName !== undefined) {
+      site.functionName = functionName;
+    }
+    result.sites.push(site);
+  }
+  for (let lineNo = start; lineNo <= end; lineNo += 1) {
+    if (skipped.has(lineNo) || result.sites.some((site) => site.line === lineNo)) {
+      continue;
+    }
+    const expr = whereValue(stripped[lineNo - 1] ?? "");
+    if (expr === undefined) {
+      continue;
+    }
+    const bindings = bindingsBefore(stripped, start, lineNo, skipped, "");
+    if (!whereExprTainted(expr, bindings)) {
+      continue;
+    }
+    const inputs = collectInputs(expr, bindings);
+    const site: RawSite = {
+      file,
+      line: lineNo,
+      callEndLine: lineNo,
+      startLine: start,
+      endLine: end,
+      source: sliceLines(original, start, end),
+      lineTruncated,
+      kind: "nosql",
+      cwe: "CWE-943",
+      symbol: "$where",
+      inputs: inputs.length > 0 ? inputs : ["argument"],
+      inputLine: inputLineFor(expr, bindings, lineNo),
+      mitigated: false,
     };
     if (route !== undefined) {
       site.route = route.route;
@@ -1036,13 +1141,28 @@ export async function planInjection(root: string, inventory: Inventory): Promise
     }
   }
 
-  raw.sort(
-    (left, right) =>
+  raw.sort((left, right) => {
+    const rank = (site: RawSite): number => {
+      const call = site.symbol !== "$where";
+      if (site.mitigated) {
+        return 4;
+      }
+      if (call && site.route !== undefined) {
+        return 0;
+      }
+      if (call) {
+        return 1;
+      }
+      return site.route !== undefined ? 2 : 3;
+    };
+    return (
+      rank(left) - rank(right) ||
       compareString(left.file, right.file) ||
       left.line - right.line ||
       compareString(left.symbol, right.symbol) ||
-      compareString(left.kind, right.kind),
-  );
+      compareString(left.kind, right.kind)
+    );
+  });
   const sites: InjectionSite[] = raw.map((site, index) => ({
     ...site,
     overCap: index >= HUNTER_SITE_CAP,
@@ -1176,10 +1296,17 @@ function sinkLabel(site: InjectionSite): string {
   return `Code sink (${site.symbol})`;
 }
 
+function inputPhrase(inputs: readonly string[]): string {
+  if (inputs.length === 1 && inputs[0] === "argument") {
+    return "a caller-supplied argument";
+  }
+  return `request ${inputs.join(" and ")} input`;
+}
+
 function heuristicCandidate(site: InjectionSite): Candidate {
-  const inputs = site.inputs.join(" and ");
   const phrase = sinkPhrase(site);
   const where = subjectOf(site);
+  const passed = inputPhrase(site.inputs);
   return {
     class: "injection",
     cwe: site.cwe,
@@ -1194,12 +1321,12 @@ function heuristicCandidate(site: InjectionSite): Candidate {
       end_line: site.callEndLine,
     },
     symbol: site.symbol,
-    root_cause: `${where} passes request ${inputs} input into ${phrase}`,
+    root_cause: `${where} passes ${passed} into ${phrase}`,
     evidence: [
       {
         file: site.file,
         line: site.inputLine,
-        note: `Request ${inputs} input.`,
+        note: `${passed}.`,
       },
       {
         file: site.file,
