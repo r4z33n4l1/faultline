@@ -39,6 +39,7 @@ pnpm exec faultline validate path/to/findings.json
 pnpm exec faultline scan .
 pnpm exec faultline bench bench/seeded-app
 pnpm bench:fetch
+pnpm bench:fetch --group heldout
 pnpm exec faultline bench --corpus dvna
 pnpm exec faultline bench --corpus dvna --baseline semgrep
 pnpm exec faultline pr path/to/change.diff --repo .

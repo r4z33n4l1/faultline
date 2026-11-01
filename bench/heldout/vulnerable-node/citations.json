@@ -1,0 +1,100 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "vulnerable-node-order-idor",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/01-bola-idor.md",
+      "note": "Lab 01 says any logged-in user can read any order id. GET /orders/:id calls orderById with req.params.id at routes/orders.js lines 66-69 and does not pass the session user id."
+    },
+    {
+      "id": "vulnerable-node-api-orders-idor",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/01-bola-idor.md",
+      "note": "Lab 01 also names the JSON API. GET /api/v1/orders uses req.query.user_id when it is present at routes/api/v1.js lines 42-43, instead of the id in the token."
+    },
+    {
+      "id": "vulnerable-node-orders-session",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/routes/orders.js",
+      "note": "The order list passes req.session.userId into the query at routes/orders.js lines 51-52. That is the ownership look-alike beside /orders/:id. The sort argument on the same call is scored separately as injection."
+    },
+    {
+      "id": "vulnerable-node-api-me",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/routes/api/v1.js",
+      "note": "GET /api/v1/me loads db.userById(req.apiUser.id) at routes/api/v1.js lines 29-32. The id comes from the verified token, which is the look-alike beside the user_id query on the orders route."
+    },
+    {
+      "id": "vulnerable-node-login-sql",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/03-sqli.md",
+      "note": "Lab 03 documents SQL injection in login. login() concatenates username and password into the query string at model/db.js lines 13-14."
+    },
+    {
+      "id": "vulnerable-node-search-sql",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/03-sqli.md",
+      "note": "Lab 03 documents SQL injection in product search. searchProducts concatenates the term into both ILIKE patterns at model/db.js lines 24-26."
+    },
+    {
+      "id": "vulnerable-node-order-sort",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/03-sqli.md",
+      "note": "The orders route comment and model/db.js mark the sort column as SQL injection because ORDER BY cannot be a bound parameter. ordersForUserSorted interpolates sort at model/db.js lines 100-101."
+    },
+    {
+      "id": "vulnerable-node-ping-exec",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/16-command-injection.md",
+      "note": "Lab 16 documents command injection in the network diagnostics panel. The host from the body is interpolated into a string passed to child_process.exec at routes/extras.js lines 32-33."
+    },
+    {
+      "id": "vulnerable-node-tags-nosql",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/03b-nosql.md",
+      "note": "Lab 03b documents NoSQL operator injection. POST /api/tags-filter puts req.body.tags into the Mongo filter at routes/shop.js lines 40-41."
+    },
+    {
+      "id": "vulnerable-node-meta-nosql",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/03b-nosql.md",
+      "note": "The same lab's GET path assigns req.query.origin onto the Mongo query at routes/shop.js lines 57-58."
+    },
+    {
+      "id": "vulnerable-node-user-by-id",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/model/db.js",
+      "note": "userById at model/db.js lines 17-18 binds the id with $1. It is the parameterized look-alike directly under the concatenated login query."
+    },
+    {
+      "id": "vulnerable-node-api-login",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/routes/api/v1.js",
+      "note": "POST /api/v1/auth/token binds username and password with $1 and $2 at routes/api/v1.js lines 16-17. That is the safe login query beside the concatenated one in model/db.js."
+    },
+    {
+      "id": "vulnerable-node-session-secret",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/config.js",
+      "note": "config.js line 9 falls back to a session-secret literal when SESSION_SECRET is unset. The comment marks that fallback as the training flaw. It is not a live credential."
+    },
+    {
+      "id": "vulnerable-node-jwt-secret",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/07-jwt-weak-secret.md",
+      "note": "Lab 07 documents the guessable HMAC secret. config.js line 16 falls back to a JWT secret literal when JWT_SECRET is unset. It is a training value."
+    },
+    {
+      "id": "vulnerable-node-database-url",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/config.js",
+      "note": "config.js line 17 falls back to a Postgres URL that embeds a username and password. That default is a hardcoded database credential."
+    },
+    {
+      "id": "vulnerable-node-login-log",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/routes/auth.js",
+      "note": "The login handler writes the submitted password to the log at routes/auth.js line 23. The comment on that line marks the log as the flaw."
+    },
+    {
+      "id": "vulnerable-node-mongo-url",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/config.js",
+      "note": "config.js line 18 reads MONGO_URL and the fallback URL has no user or password. That is the look-alike beside the Postgres URL on the previous line, which embeds a password."
+    },
+    {
+      "id": "vulnerable-node-tools-fetch",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/docs/labs/02-ssrf-imds.md",
+      "note": "Lab 02 documents SSRF on the URL fetcher. POST /tools/fetch calls fetch on req.body.url at routes/tools.js lines 21-24 with no host allowlist."
+    },
+    {
+      "id": "vulnerable-node-vault-check",
+      "source": "https://github.com/cr0hn/vulnerable-node/blob/d68f2a3c9277ece2c2feb9976052033bdecd7fbe/routes/tools.js",
+      "note": "The vault-check handler fetches config.imdsUrl and config.vaultUrl at routes/tools.js lines 56-59. Those hosts are configuration, not the request. The comment above the fetches says the host is user-influenced; the pinned statements are not, so this row is the safe look-alike."
+    }
+  ]
+}

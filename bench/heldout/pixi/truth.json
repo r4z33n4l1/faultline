@@ -1,0 +1,140 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "pixi-api-other-user",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "api/api.js",
+      "start_line": 553,
+      "end_line": 556,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-api-picture-delete-open",
+      "class": "authz_idor",
+      "cwe": "CWE-862",
+      "file": "api/api.js",
+      "start_line": 260,
+      "end_line": 267,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-web-user-update",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "app/server.js",
+      "start_line": 1241,
+      "end_line": 1243,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-web-photo-delete",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "app/server.js",
+      "start_line": 1559,
+      "end_line": 1560,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-api-user-info",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "api/api.js",
+      "start_line": 511,
+      "end_line": 512,
+      "vulnerable": false
+    },
+    {
+      "id": "pixi-web-photo-delete-owner",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "app/server.js",
+      "start_line": 1584,
+      "end_line": 1590,
+      "vulnerable": false
+    },
+    {
+      "id": "pixi-api-login-nosql",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "api/api.js",
+      "start_line": 70,
+      "end_line": 70,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-web-login-nosql",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "app/server.js",
+      "start_line": 859,
+      "end_line": 859,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-web-admin-search",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "app/server.js",
+      "start_line": 939,
+      "end_line": 939,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-api-register-email",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "api/api.js",
+      "start_line": 101,
+      "end_line": 102,
+      "vulnerable": false
+    },
+    {
+      "id": "pixi-api-password",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "api/server.conf",
+      "start_line": 3,
+      "end_line": 3,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-api-session-secret",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "api/server.conf",
+      "start_line": 4,
+      "end_line": 4,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-web-session-secret",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "app/server.conf",
+      "start_line": 2,
+      "end_line": 2,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-api-log-secret",
+      "class": "secrets",
+      "cwe": "CWE-532",
+      "file": "api/api.js",
+      "start_line": 164,
+      "end_line": 164,
+      "vulnerable": true
+    },
+    {
+      "id": "pixi-api-log-password",
+      "class": "secrets",
+      "cwe": "CWE-532",
+      "file": "api/api.js",
+      "start_line": 69,
+      "end_line": 69,
+      "vulnerable": true
+    }
+  ]
+}

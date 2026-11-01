@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "goof-login-nosql",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README lists NoSQL injection under vulnerabilities in code. loginHandler passes req.body.username and req.body.password into User.find at routes/index.js line 52. JSON bodies are enabled in app.js, so the query document is request data."
+    },
+    {
+      "id": "goof-identify-exec",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README lists command execution under vulnerabilities in code. create() takes a URL out of the todo body and concatenates it into child_process.exec at routes/index.js line 174."
+    },
+    {
+      "id": "goof-account-render",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README lists code injection on account details: the POST body is passed through to the Handlebars view. save_account_details copies req.body to profile at routes/index.js line 104 and renders it at line 120."
+    },
+    {
+      "id": "goof-admin-seed-find",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/mongoose-db.js",
+      "note": "The admin seed lookup at mongoose-db.js line 48 is a User.find whose username is a constant. It sits beside the login find that puts the request body into the query document."
+    },
+    {
+      "id": "goof-session-secret",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The README lists information exposure via hardcoded values. The express-session secret at app.js line 43 is a string literal. It is a training value, not a live credential."
+    },
+    {
+      "id": "goof-logged-token",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/README.md",
+      "note": "The same hardcoded-values note covers the token literal at app.js line 83, which line 84 writes to the log. It is a training value, not a live credential."
+    },
+    {
+      "id": "goof-mysql-password",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/typeorm-db.js",
+      "note": "The MySQL connection options at typeorm-db.js line 12 set password to a literal. That is a hardcoded database credential beside the session secret, not an environment read."
+    },
+    {
+      "id": "goof-mongo-uri-env",
+      "source": "https://github.com/snyk-labs/nodejs-goof/blob/add14ba59e98240d9e00a235dd7d42cd61ae9912/mongoose-db.js",
+      "note": "mongoose-db.js lines 35-40 take the Mongo connection string from MONGOLAB_URI or MONGODB_URI. That is the environment-variable look-alike beside the hardcoded session secret and database password."
+    }
+  ]
+}

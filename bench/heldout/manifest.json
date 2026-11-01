@@ -1,0 +1,31 @@
+{
+  "schema_version": "1",
+  "cache_dir": "bench/.cache",
+  "semgrep": {
+    "version": "1.183.0",
+    "rulesets": ["p/javascript", "p/typescript", "p/nodejsscan", "p/secrets"]
+  },
+  "apps": [
+    {
+      "name": "nodejs-goof",
+      "upstream": "https://github.com/snyk-labs/nodejs-goof",
+      "commit": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+      "license": "Apache-2.0",
+      "license_path": "LICENSE"
+    },
+    {
+      "name": "pixi",
+      "upstream": "https://github.com/DevSlop/Pixi",
+      "commit": "cb716a94fa368acade96e9bdb8b25c1a68703e60",
+      "license": "Apache-2.0",
+      "license_path": "LICENSE"
+    },
+    {
+      "name": "vulnerable-node",
+      "upstream": "https://github.com/cr0hn/vulnerable-node",
+      "commit": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+      "license": "BSD-3-Clause",
+      "license_path": "LICENSE"
+    }
+  ]
+}

@@ -8,6 +8,9 @@ Precision and recall use the same site-level matrix as `faultline bench`: class,
 Unmatched detections are not false positives. A rate is `n/a` when its denominator is zero.
 The score is TPR minus FPR.
 
+Held-out apps are a separate fetch group (`--group heldout`). Their labels are under `bench/heldout` and their scores are under `bench/results/heldout`.
+Held-out labels must not drive heuristic changes. A miss on that set is not a reason to edit a hunter, a validator, or recon.
+
 Raw scanner output is not committed. It can quote corpus source.
 
 | corpus     | tool      | version | model           | stage      | commit       | class      | TP  | FP  | FN  | TN  | precision | recall | score |
