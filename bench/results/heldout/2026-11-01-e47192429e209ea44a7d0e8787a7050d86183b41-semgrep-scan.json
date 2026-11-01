@@ -1,0 +1,874 @@
+{
+  "schema_version": "1",
+  "label": "pre-validator heuristic",
+  "note": "Pre-validator heuristic. Not a Faultline product result. No model was called.",
+  "citable": false,
+  "date": "2026-11-01",
+  "tool": {
+    "name": "semgrep",
+    "version": "1.183.0"
+  },
+  "model": "none, heuristic",
+  "stage": "scan",
+  "commit": "e47192429e209ea44a7d0e8787a7050d86183b41",
+  "rulesets": ["p/javascript", "p/typescript", "p/nodejsscan", "p/secrets"],
+  "apps": [
+    {
+      "name": "nodejs-goof",
+      "upstream": "https://github.com/snyk-labs/nodejs-goof",
+      "license": "Apache-2.0",
+      "corpus_commit": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+      "target": "bench/.cache/nodejs-goof",
+      "truth": "bench/heldout/nodejs-goof/truth.json",
+      "inventory_truncated": null,
+      "counts": {
+        "truth": 8,
+        "vulnerable": 6,
+        "safe": 2,
+        "detections": 6,
+        "unmatched": 0
+      },
+      "overall": {
+        "class": "overall",
+        "tp": 1,
+        "fp": 0,
+        "fn": 5,
+        "tn": 2,
+        "recall": 0.16666666666666666,
+        "precision": 1,
+        "tpr": 0.16666666666666666,
+        "fpr": 0,
+        "score": 0.16666666666666666
+      },
+      "classes": [
+        {
+          "class": "authz_idor",
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "recall": null,
+          "precision": null,
+          "tpr": null,
+          "fpr": null,
+          "score": null
+        },
+        {
+          "class": "injection",
+          "tp": 0,
+          "fp": 0,
+          "fn": 3,
+          "tn": 1,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "secrets",
+          "tp": 1,
+          "fp": 0,
+          "fn": 2,
+          "tn": 1,
+          "recall": 0.3333333333333333,
+          "precision": 1,
+          "tpr": 0.3333333333333333,
+          "fpr": 0,
+          "score": 0.3333333333333333
+        },
+        {
+          "class": "ssrf",
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "recall": null,
+          "precision": null,
+          "tpr": null,
+          "fpr": null,
+          "score": null
+        }
+      ],
+      "entries": [
+        {
+          "id": "goof-account-render",
+          "class": "injection",
+          "cwe": "CWE-94",
+          "file": "routes/index.js",
+          "start_line": 104,
+          "end_line": 120,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "goof-admin-seed-find",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "mongoose-db.js",
+          "start_line": 48,
+          "end_line": 48,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "goof-identify-exec",
+          "class": "injection",
+          "cwe": "CWE-78",
+          "file": "routes/index.js",
+          "start_line": 174,
+          "end_line": 174,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "goof-logged-token",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "app.js",
+          "start_line": 83,
+          "end_line": 84,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "goof-login-nosql",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "routes/index.js",
+          "start_line": 52,
+          "end_line": 52,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "goof-mongo-uri-env",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "mongoose-db.js",
+          "start_line": 35,
+          "end_line": 40,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "goof-mysql-password",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "typeorm-db.js",
+          "start_line": 12,
+          "end_line": 12,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "goof-session-secret",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "app.js",
+          "start_line": 43,
+          "end_line": 43,
+          "vulnerable": true,
+          "outcome": "tp"
+        }
+      ],
+      "unmatched": []
+    },
+    {
+      "name": "pixi",
+      "upstream": "https://github.com/DevSlop/Pixi",
+      "license": "Apache-2.0",
+      "corpus_commit": "cb716a94fa368acade96e9bdb8b25c1a68703e60",
+      "target": "bench/.cache/pixi",
+      "truth": "bench/heldout/pixi/truth.json",
+      "inventory_truncated": null,
+      "counts": {
+        "truth": 15,
+        "vulnerable": 12,
+        "safe": 3,
+        "detections": 18,
+        "unmatched": 18
+      },
+      "overall": {
+        "class": "overall",
+        "tp": 0,
+        "fp": 0,
+        "fn": 12,
+        "tn": 3,
+        "recall": 0,
+        "precision": null,
+        "tpr": 0,
+        "fpr": 0,
+        "score": 0
+      },
+      "classes": [
+        {
+          "class": "authz_idor",
+          "tp": 0,
+          "fp": 0,
+          "fn": 4,
+          "tn": 2,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "injection",
+          "tp": 0,
+          "fp": 0,
+          "fn": 3,
+          "tn": 1,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "secrets",
+          "tp": 0,
+          "fp": 0,
+          "fn": 5,
+          "tn": 0,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": null,
+          "score": null
+        },
+        {
+          "class": "ssrf",
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "recall": null,
+          "precision": null,
+          "tpr": null,
+          "fpr": null,
+          "score": null
+        }
+      ],
+      "entries": [
+        {
+          "id": "pixi-api-log-password",
+          "class": "secrets",
+          "cwe": "CWE-532",
+          "file": "api/api.js",
+          "start_line": 69,
+          "end_line": 69,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-api-log-secret",
+          "class": "secrets",
+          "cwe": "CWE-532",
+          "file": "api/api.js",
+          "start_line": 164,
+          "end_line": 164,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-api-login-nosql",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "api/api.js",
+          "start_line": 70,
+          "end_line": 70,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-api-other-user",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "api/api.js",
+          "start_line": 553,
+          "end_line": 556,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-api-password",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "api/server.conf",
+          "start_line": 3,
+          "end_line": 3,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-api-picture-delete-open",
+          "class": "authz_idor",
+          "cwe": "CWE-862",
+          "file": "api/api.js",
+          "start_line": 260,
+          "end_line": 267,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-api-register-email",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "api/api.js",
+          "start_line": 101,
+          "end_line": 102,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "pixi-api-session-secret",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "api/server.conf",
+          "start_line": 4,
+          "end_line": 4,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-api-user-info",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "api/api.js",
+          "start_line": 511,
+          "end_line": 512,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "pixi-web-admin-search",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "app/server.js",
+          "start_line": 939,
+          "end_line": 939,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-web-login-nosql",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "app/server.js",
+          "start_line": 859,
+          "end_line": 859,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-web-photo-delete",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "app/server.js",
+          "start_line": 1559,
+          "end_line": 1560,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-web-photo-delete-owner",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "app/server.js",
+          "start_line": 1584,
+          "end_line": 1590,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "pixi-web-session-secret",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "app/server.conf",
+          "start_line": 2,
+          "end_line": 2,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "pixi-web-user-update",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "app/server.js",
+          "start_line": 1241,
+          "end_line": 1243,
+          "vulnerable": true,
+          "outcome": "fn"
+        }
+      ],
+      "unmatched": [
+        {
+          "class": "injection",
+          "file": "api/api.js",
+          "startLine": 226,
+          "endLine": 232
+        },
+        {
+          "class": "injection",
+          "file": "api/api.js",
+          "startLine": 381,
+          "endLine": 431
+        },
+        {
+          "class": "injection",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 3166,
+          "endLine": 3195
+        },
+        {
+          "class": "injection",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 3201,
+          "endLine": 3229
+        },
+        {
+          "class": "injection",
+          "file": "app/server.js",
+          "startLine": 247,
+          "endLine": 253
+        },
+        {
+          "class": "injection",
+          "file": "app/server.js",
+          "startLine": 289,
+          "endLine": 315
+        },
+        {
+          "class": "injection",
+          "file": "app/server.js",
+          "startLine": 425,
+          "endLine": 475
+        },
+        {
+          "class": "injection",
+          "file": "app/server.js",
+          "startLine": 1039,
+          "endLine": 1080
+        },
+        {
+          "class": "injection",
+          "file": "app/server.js",
+          "startLine": 1435,
+          "endLine": 1487
+        },
+        {
+          "class": "injection",
+          "file": "app/server.js",
+          "startLine": 1584,
+          "endLine": 1610
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 200,
+          "endLine": 200
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 379,
+          "endLine": 379
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 542,
+          "endLine": 542
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 1022,
+          "endLine": 1022
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 1374,
+          "endLine": 1374
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 1657,
+          "endLine": 1657
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 2186,
+          "endLine": 2186
+        },
+        {
+          "class": "secrets",
+          "file": "app/public/js/bootstrap.js",
+          "startLine": 2498,
+          "endLine": 2498
+        }
+      ]
+    },
+    {
+      "name": "vulnerable-node",
+      "upstream": "https://github.com/cr0hn/vulnerable-node",
+      "license": "BSD-3-Clause",
+      "corpus_commit": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+      "target": "bench/.cache/vulnerable-node",
+      "truth": "bench/heldout/vulnerable-node/truth.json",
+      "inventory_truncated": null,
+      "counts": {
+        "truth": 19,
+        "vulnerable": 13,
+        "safe": 6,
+        "detections": 15,
+        "unmatched": 14
+      },
+      "overall": {
+        "class": "overall",
+        "tp": 1,
+        "fp": 0,
+        "fn": 12,
+        "tn": 6,
+        "recall": 0.07692307692307693,
+        "precision": 1,
+        "tpr": 0.07692307692307693,
+        "fpr": 0,
+        "score": 0.07692307692307693
+      },
+      "classes": [
+        {
+          "class": "authz_idor",
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "tn": 2,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "injection",
+          "tp": 1,
+          "fp": 0,
+          "fn": 5,
+          "tn": 2,
+          "recall": 0.16666666666666666,
+          "precision": 1,
+          "tpr": 0.16666666666666666,
+          "fpr": 0,
+          "score": 0.16666666666666666
+        },
+        {
+          "class": "secrets",
+          "tp": 0,
+          "fp": 0,
+          "fn": 4,
+          "tn": 1,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "ssrf",
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "tn": 1,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        }
+      ],
+      "entries": [
+        {
+          "id": "vulnerable-node-api-login",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "routes/api/v1.js",
+          "start_line": 16,
+          "end_line": 17,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "vulnerable-node-api-me",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/api/v1.js",
+          "start_line": 29,
+          "end_line": 32,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "vulnerable-node-api-orders-idor",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/api/v1.js",
+          "start_line": 42,
+          "end_line": 43,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-database-url",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "config.js",
+          "start_line": 17,
+          "end_line": 17,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-jwt-secret",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "config.js",
+          "start_line": 16,
+          "end_line": 16,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-login-log",
+          "class": "secrets",
+          "cwe": "CWE-532",
+          "file": "routes/auth.js",
+          "start_line": 23,
+          "end_line": 23,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-login-sql",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "model/db.js",
+          "start_line": 13,
+          "end_line": 14,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-meta-nosql",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "routes/shop.js",
+          "start_line": 57,
+          "end_line": 58,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-mongo-url",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "config.js",
+          "start_line": 18,
+          "end_line": 18,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "vulnerable-node-order-idor",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/orders.js",
+          "start_line": 66,
+          "end_line": 69,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-order-sort",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "model/db.js",
+          "start_line": 100,
+          "end_line": 101,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-orders-session",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/orders.js",
+          "start_line": 51,
+          "end_line": 52,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "vulnerable-node-ping-exec",
+          "class": "injection",
+          "cwe": "CWE-78",
+          "file": "routes/extras.js",
+          "start_line": 32,
+          "end_line": 33,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "vulnerable-node-search-sql",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "model/db.js",
+          "start_line": 24,
+          "end_line": 26,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-session-secret",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "config.js",
+          "start_line": 9,
+          "end_line": 9,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-tags-nosql",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "routes/shop.js",
+          "start_line": 40,
+          "end_line": 41,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-tools-fetch",
+          "class": "ssrf",
+          "cwe": "CWE-918",
+          "file": "routes/tools.js",
+          "start_line": 21,
+          "end_line": 24,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "vulnerable-node-user-by-id",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "model/db.js",
+          "start_line": 17,
+          "end_line": 18,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "vulnerable-node-vault-check",
+          "class": "ssrf",
+          "cwe": "CWE-918",
+          "file": "routes/tools.js",
+          "start_line": 56,
+          "end_line": 59,
+          "vulnerable": false,
+          "outcome": "tn"
+        }
+      ],
+      "unmatched": [
+        {
+          "class": "injection",
+          "file": "db/init.js",
+          "startLine": 12,
+          "endLine": 12
+        },
+        {
+          "class": "injection",
+          "file": "model/db.js",
+          "startLine": 114,
+          "endLine": 114
+        },
+        {
+          "class": "injection",
+          "file": "sast/seeds/deserialization.js",
+          "startLine": 21,
+          "endLine": 23
+        },
+        {
+          "class": "injection",
+          "file": "sast/seeds/eval-code.js",
+          "startLine": 16,
+          "endLine": 16
+        },
+        {
+          "class": "secrets",
+          "file": "sast/seeds/hardcoded-secret.js",
+          "startLine": 2,
+          "endLine": 18
+        },
+        {
+          "class": "secrets",
+          "file": "sast/seeds/hardcoded-secret.js",
+          "startLine": 4,
+          "endLine": 4
+        },
+        {
+          "class": "secrets",
+          "file": "sast/seeds/hardcoded-secret.js",
+          "startLine": 5,
+          "endLine": 5
+        },
+        {
+          "class": "secrets",
+          "file": "sast/seeds/hardcoded-secret.js",
+          "startLine": 17,
+          "endLine": 17
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 55,
+          "endLine": 61
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 55,
+          "endLine": 61
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 55,
+          "endLine": 61
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 55,
+          "endLine": 61
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 55,
+          "endLine": 61
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 55,
+          "endLine": 61
+        }
+      ]
+    }
+  ]
+}
