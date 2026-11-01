@@ -1,8 +1,12 @@
 import type { Candidate } from "../schema/candidate.js";
 import { normalizeRepoPath, readSourceFile } from "./source.js";
 
-/** Bounds shared by per-site hunters. One model call per selected site, within these caps. */
-export const HUNTER_SITE_CAP = 8;
+/**
+ * Default number of sites one hunter reviews. `--max-sites` overrides it.
+ * Sites are ranked before the budget is applied. Sites past it stay in
+ * coverage with an explicit reason.
+ */
+export const HUNTER_SITE_CAP = 40;
 export const HUNTER_SITE_MAX_LINES = 80;
 export const HUNTER_SITE_MAX_CHARS = 4_000;
 export const HUNTER_MAX_CANDIDATES_PER_SITE = 3;

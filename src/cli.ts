@@ -64,6 +64,7 @@ interface InventoryFlagInput {
   exclude?: string[];
   maxFiles?: string;
   maxBytes?: string;
+  maxSites?: string;
 }
 
 function selectionFromFlags(opts: InventoryFlagInput): CollectOptions {
@@ -91,7 +92,18 @@ function addInventoryOptions(command: Command): Command {
     )
     .option("--exclude <glob>", "skip paths matching this glob", appendGlob, [] as string[])
     .option("--max-files <count>", "maximum source and manifest files to read")
-    .option("--max-bytes <count>", "maximum bytes of source and manifests to read");
+    .option("--max-bytes <count>", "maximum bytes of source and manifests to read")
+    .option(
+      "--max-sites <count>",
+      "maximum sites each hunter reviews, highest risk first (default 40)",
+    );
+}
+
+function maxSitesFrom(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return parsePositiveInt("--max-sites", value);
 }
 
 function messageOf(error: unknown): string {
@@ -218,6 +230,7 @@ async function runScan(
   io: CliIo,
   validate = true,
   keepInconclusive = false,
+  maxSites?: number,
 ): Promise<number> {
   const cwd = io.cwd ?? process.cwd();
   const outDir = resolve(cwd, out);
@@ -237,6 +250,7 @@ async function runScan(
       validate,
       keepInconclusive,
       inventory,
+      ...(maxSites === undefined ? {} : { maxSites }),
     });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
@@ -265,6 +279,7 @@ async function runCorpus(
   inventory: CollectOptions,
   io: CliIo,
   keepInconclusive = false,
+  maxSites?: number,
 ): Promise<number> {
   if (!isBenchStage(stage)) {
     io.stderr("stage must be candidates or findings\n");
@@ -367,6 +382,7 @@ async function runCorpus(
       model,
       inventory,
       keepInconclusive,
+      ...(maxSites === undefined ? {} : { maxSites }),
       ...(provider === undefined ? {} : { provider }),
     });
   } catch (error) {
@@ -387,6 +403,7 @@ async function runBench(
   inventory: CollectOptions,
   io: CliIo,
   keepInconclusive = false,
+  maxSites?: number,
 ): Promise<number> {
   if (!isBenchStage(stage)) {
     io.stderr("stage must be candidates or findings\n");
@@ -419,6 +436,7 @@ async function runBench(
       model,
       inventory,
       keepInconclusive,
+      ...(maxSites === undefined ? {} : { maxSites }),
       ...(provider === undefined ? {} : { provider }),
     });
   } catch (error) {
@@ -440,6 +458,7 @@ async function runPr(
   io: CliIo,
   validate = true,
   keepInconclusive = false,
+  maxSites?: number,
 ): Promise<number> {
   const github = githubPullRequestMessage(source);
   if (github !== undefined) {
@@ -499,6 +518,7 @@ async function runPr(
       validate,
       keepInconclusive,
       inventory,
+      ...(maxSites === undefined ? {} : { maxSites }),
     });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
@@ -559,8 +579,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
       } & InventoryFlagInput,
     ) => {
       let inventory: CollectOptions;
+      let maxSites: number | undefined;
       try {
         inventory = selectionFromFlags(opts);
+        maxSites = maxSitesFrom(opts.maxSites);
       } catch (error) {
         io.stderr(`${messageOf(error)}\n`);
         code = 1;
@@ -575,6 +597,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         io,
         opts.validate,
         opts.keepInconclusive === true,
+        maxSites,
       );
     },
   );
@@ -625,8 +648,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
       } & InventoryFlagInput,
     ) => {
       let inventory: CollectOptions;
+      let maxSites: number | undefined;
       try {
         inventory = selectionFromFlags(opts);
+        maxSites = maxSitesFrom(opts.maxSites);
       } catch (error) {
         io.stderr(`${messageOf(error)}\n`);
         code = 1;
@@ -653,6 +678,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
           inventory,
           io,
           opts.keepInconclusive === true,
+          maxSites,
         );
         return;
       }
@@ -676,6 +702,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         inventory,
         io,
         opts.keepInconclusive === true,
+        maxSites,
       );
     },
   );
@@ -710,8 +737,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
       } & InventoryFlagInput,
     ) => {
       let inventory: CollectOptions;
+      let maxSites: number | undefined;
       try {
         inventory = selectionFromFlags(opts);
+        maxSites = maxSitesFrom(opts.maxSites);
       } catch (error) {
         io.stderr(`${messageOf(error)}\n`);
         code = 1;
@@ -728,6 +757,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
         io,
         opts.validate,
         opts.keepInconclusive === true,
+        maxSites,
       );
     },
   );

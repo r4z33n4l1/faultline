@@ -2,6 +2,7 @@ import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { CoverageSkipReason } from "../schema/coverage.js";
 import { isIgnored, parseGitignore, type IgnoreLayer } from "./gitignore.js";
+import { resolveRouteHandlers, type ResolvedRouteHandler } from "./handlers.js";
 import {
   includeForcesDescent,
   isDefaultSkipDir,
@@ -17,6 +18,7 @@ import {
 } from "./select.js";
 
 export type { InventorySkip };
+export type { ResolvedRouteHandler };
 
 export interface InventoryLimits {
   maxFiles: number;
@@ -47,6 +49,8 @@ export interface Inventory {
   entrypoints: { path: string; reason: string }[];
   source_files: string[];
   routes: InventoryMatch[];
+  /** Route registration resolved to the function that handles the request. */
+  handlers: ResolvedRouteHandler[];
   auth: InventoryMatch[];
   data_stores: InventoryMatch[];
   outbound_http: InventoryMatch[];
@@ -73,6 +77,8 @@ const LANGUAGE_BY_EXT: Record<string, string> = {
   ".tsx": "TypeScript",
   ".mts": "TypeScript",
   ".cts": "TypeScript",
+  ".tf": "Terraform",
+  ".tfvars": "Terraform",
   ".js": "JavaScript",
   ".jsx": "JavaScript",
   ".mjs": "JavaScript",
@@ -283,6 +289,7 @@ interface State {
   frameworks: Set<string>;
   entrypoints: Map<string, Set<string>>;
   sourceFiles: string[];
+  sources: Map<string, string>;
   routes: InventoryMatch[];
   auth: InventoryMatch[];
   dataStores: InventoryMatch[];
@@ -361,6 +368,7 @@ function createState(
     frameworks: new Set(),
     entrypoints: new Map(),
     sourceFiles: [],
+    sources: new Map(),
     routes: [],
     auth: [],
     dataStores: [],
@@ -609,6 +617,7 @@ async function readCandidate(candidate: CandidateFile, state: State): Promise<vo
   if (language !== undefined) {
     state.languages.set(language, (state.languages.get(language) ?? 0) + 1);
     state.sourceFiles.push(candidate.rel);
+    state.sources.set(candidate.rel, text);
     if (ENTRY_BASENAMES.has(base)) {
       addEntrypoint(state, candidate.rel, "filename");
     }
@@ -788,7 +797,25 @@ function sortedMatches(list: readonly InventoryMatch[]): InventoryMatch[] {
   );
 }
 
+function mergeResolvedRoutes(
+  routes: readonly InventoryMatch[],
+  handlers: readonly ResolvedRouteHandler[],
+): InventoryMatch[] {
+  const merged = [...routes];
+  const seen = new Set(routes.map((route) => `${route.path}:${route.line}:${route.note}`));
+  for (const handler of handlers) {
+    const key = `${handler.routeFile}:${handler.routeLine}:${handler.route}`;
+    if (seen.has(key) || merged.length >= MAX_MATCHES) {
+      continue;
+    }
+    seen.add(key);
+    merged.push({ path: handler.routeFile, line: handler.routeLine, note: handler.route });
+  }
+  return sortedMatches(merged);
+}
+
 function finish(target: string, state: State): Inventory {
+  const handlers = resolveRouteHandlers(state.sources);
   const languages = [...state.languages.entries()]
     .map(([name, files]) => ({ name, files }))
     .sort((left, right) => compareString(left.name, right.name));
@@ -808,7 +835,8 @@ function finish(target: string, state: State): Inventory {
     frameworks: [...state.frameworks].sort(compareString),
     entrypoints,
     source_files: [...state.sourceFiles].sort(compareString),
-    routes: sortedMatches(state.routes),
+    routes: mergeResolvedRoutes(state.routes, handlers),
+    handlers,
     auth: sortedMatches(state.auth),
     data_stores: sortedMatches(state.dataStores),
     outbound_http: sortedMatches(state.outbound),
@@ -835,6 +863,7 @@ export function serializeInventory(inventory: Inventory): string {
     entrypoints: inventory.entrypoints,
     source_files: inventory.source_files,
     routes: inventory.routes,
+    handlers: inventory.handlers,
     auth: inventory.auth,
     data_stores: inventory.data_stores,
     outbound_http: inventory.outbound_http,

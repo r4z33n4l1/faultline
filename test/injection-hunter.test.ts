@@ -606,6 +606,7 @@ describe("injection prompt", () => {
       inputs: ["query"],
       inputLine: 2,
       mitigated: false,
+      risk: "tainted",
       overCap: false,
     };
     const user = buildInjectionPrompt(site)[1]?.content ?? "";

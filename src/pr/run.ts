@@ -44,6 +44,8 @@ export interface PrRequest {
   keepInconclusive?: boolean;
   /** Include and exclude globs, and file or byte caps. Defaults apply when omitted. */
   inventory?: CollectOptions;
+  /** Per-hunter site budget. Defaults to the shared cap when omitted. */
+  maxSites?: number;
   startedAt?: Date;
   runId?: string;
 }
@@ -67,6 +69,7 @@ export async function executePr(request: PrRequest): Promise<void> {
     root: request.repo,
     target: request.repoLabel,
     inventory: scopeInventory(inventory, new Set(changed.map((file) => file.path))),
+    ...(request.maxSites === undefined ? {} : { maxSites: request.maxSites }),
     markCoverage(unitId, status, reason) {
       marks.set(unitId, { status, reason });
     },
@@ -135,6 +138,9 @@ export function scopeInventory(inventory: Inventory, files: ReadonlySet<string>)
     ...inventory,
     source_files: inventory.source_files.filter(keep),
     routes: matches(inventory.routes),
+    handlers: inventory.handlers.filter(
+      (handler) => keep(handler.routeFile) || keep(handler.handlerFile),
+    ),
     auth: matches(inventory.auth),
     data_stores: matches(inventory.data_stores),
     outbound_http: matches(inventory.outbound_http),

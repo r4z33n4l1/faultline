@@ -1,6 +1,7 @@
 import type { Candidate } from "../schema/candidate.js";
 import { stripComments, stripQuoted } from "../hunters/shared.js";
 import { normalizeRepoPath, readSourceFile } from "../hunters/source.js";
+import type { ResolvedRouteHandler } from "../recon/handlers.js";
 import type { InventoryMatch } from "../recon/inventory.js";
 
 /** Character budget for the fenced candidate plus context. Roughly a couple thousand tokens. */
@@ -72,6 +73,8 @@ export interface ValidatorInventory {
   routes: readonly InventoryMatch[];
   auth: readonly InventoryMatch[];
   source_files?: readonly string[];
+  /** Cross-file route registrations. Optional so callers that only pass routes still work. */
+  handlers?: readonly ResolvedRouteHandler[];
 }
 
 export interface NumberedSlice {
@@ -243,6 +246,21 @@ function mentions(line: string, symbol: string): boolean {
   return new RegExp(String.raw`(?<![\w$])${escaped}(?![\w$])`).test(line);
 }
 
+function linkedRegistration(
+  inventory: ValidatorInventory,
+  file: string,
+  line: number,
+): InventoryMatch | undefined {
+  const hit = inventory.handlers?.find(
+    (handler) =>
+      handler.handlerFile === file && line >= handler.handlerLine && line <= handler.handlerEndLine,
+  );
+  if (hit === undefined) {
+    return undefined;
+  }
+  return { path: hit.routeFile, line: hit.routeLine, note: hit.route };
+}
+
 function reconAllows(inventory: ValidatorInventory, rel: string): boolean {
   if (inventory.source_files !== undefined && !inventory.source_files.includes(rel)) {
     return false;
@@ -294,9 +312,19 @@ async function matchRoute(
     return undefined;
   }
   const symbol = input.candidate.symbol;
+  const linked = linkedRegistration(inventory, file, input.candidate.location.start_line);
   const preferred = inventory.routes.filter((route) => route.path === file);
   const rest = inventory.routes.filter((route) => route.path !== file);
-  const considered = [...preferred, ...rest].slice(0, MAX_ROUTE_FILES);
+  const ordered = linked === undefined ? [...preferred, ...rest] : [linked, ...preferred, ...rest];
+  const considered = ordered
+    .filter(
+      (route, index) =>
+        ordered.findIndex(
+          (item) =>
+            item.path === route.path && item.line === route.line && item.note === route.note,
+        ) === index,
+    )
+    .slice(0, MAX_ROUTE_FILES);
   let best: RouteHit | undefined;
   const texts = new Map<string, string>();
   for (const route of considered) {
@@ -319,7 +347,15 @@ async function matchRoute(
       route.line < fn.start &&
       fn.start - route.line <= VALIDATOR_FUNCTION_MAX_LINES;
     const named = mentions(registration, symbol);
+    const linkedHit =
+      linked !== undefined &&
+      linked.path === route.path &&
+      linked.line === route.line &&
+      linked.note === route.note;
     let score = 0;
+    if (linkedHit) {
+      score += 6;
+    }
     if (named) {
       score += 4;
     }

@@ -62,7 +62,7 @@ Recon skips `node_modules`, build and coverage output, lockfiles, minified bundl
 
 `scan` selects route handlers that take an object identifier (path, query, or body) and touch a data store. It notes whether auth middleware and an ownership or tenant check are visible.
 
-With no provider, a handler that lacks a visible ownership or tenant check becomes a low-confidence candidate. With a provider, Faultline makes one model call per selected handler, at most 8, and fences the handler source as untrusted data. Model output is parsed with zod. Malformed items are discarded. A candidate is dropped when its file is not a scanned source file, its line range falls outside that file, or its cited symbol is not in the file.
+With no provider, a handler that lacks a visible ownership or tenant check becomes a low-confidence candidate. With a provider, Faultline makes one model call per selected handler, at most 40 (`--max-sites`), and fences the handler source as untrusted data. Model output is parsed with zod. Malformed items are discarded. A candidate is dropped when its file is not a scanned source file, its line range falls outside that file, or its cited symbol is not in the file.
 
 Reviewed authz/IDOR coverage rows are `hunted`. Routes that are out of scope, or past the handler cap, are `skipped` with a reason. A validator is not part of this step.
 
@@ -74,7 +74,7 @@ With no provider, `architecture.md` is an inventory-only note and hunter candida
 
 `scan` selects sinks in the same handler or function when request input reaches them. The pre-pass looks for SQL built with template strings or concatenation (`query`, `execute`, `raw`, `knex.raw`, `sequelize.query`, `prisma.$queryRawUnsafe`, `prisma.$executeRawUnsafe`), NoSQL `$where` and operator objects built from request input, `child_process` `exec` / `execSync` / `spawn` with `shell: true`, and `eval`, `new Function`, `vm`, or a template render whose source is request input. It notes parameterization and allowlisting.
 
-With no provider, only an unmitigated tainted sink becomes a low-confidence candidate. `execFile`, `spawn` without a shell, bound SQL parameters, and the safe `prisma.$queryRaw` tag are not candidates. With a provider, Faultline makes one model call per selected sink, at most 8, and fences the handler source as untrusted data. Parsing, grounding, and the candidate cap are the same helpers the authz/IDOR hunter uses.
+With no provider, only an unmitigated tainted sink becomes a low-confidence candidate. `execFile`, `spawn` without a shell, bound SQL parameters, and the safe `prisma.$queryRaw` tag are not candidates. With a provider, Faultline makes one model call per selected sink, at most 40 (`--max-sites`), and fences the handler source as untrusted data. Parsing, grounding, and the candidate cap are the same helpers the authz/IDOR hunter uses.
 
 Reviewed injection coverage rows are `hunted`. Handlers with no selected sink, a parameterized query, or a sink past the cap are `skipped` with a reason. Candidates still are not findings.
 
@@ -84,7 +84,7 @@ Reviewed injection coverage rows are `hunted`. Handlers with no selected sink, a
 
 Env files stay names only. Recon does not read them, and the secrets hunter does not read them either. A committed env file that is not an example, sample, or template becomes a filename-only candidate. Config file contents are read by this hunter. The raw secret is not stored. Candidates keep a redacted fingerprint (first 4 characters, length, and a sha256 prefix) and the location. Model prompts receive the surrounding source with the literal replaced by `<redacted>`.
 
-With no provider, a known credential format is a medium-confidence heuristic candidate. Other heuristic secrets candidates are low confidence. With a provider, Faultline makes one model call per selected site, at most 8, and fences the redacted source as untrusted data. Parsing, grounding, and the candidate cap are the same helpers the other hunters use. A model response that contains a raw secret seen in the pre-pass is discarded. Filename-only env candidates are still recorded, because their contents are never sent.
+With no provider, a known credential format is a medium-confidence heuristic candidate. Other heuristic secrets candidates are low confidence. With a provider, Faultline makes one model call per selected site, at most 40 (`--max-sites`), and fences the redacted source as untrusted data. Parsing, grounding, and the candidate cap are the same helpers the other hunters use. A model response that contains a raw secret seen in the pre-pass is discarded. Filename-only env candidates are still recorded, because their contents are never sent.
 
 Reviewed secrets coverage rows are `hunted`. Files with no selected secret, test paths, and sites past the cap are `skipped` with a reason. Route rows for this class are `skipped` because the hunter reviews files. Candidates still are not findings.
 
@@ -94,7 +94,7 @@ Reviewed secrets coverage rows are `hunted`. Files with no selected secret, test
 
 A hard allowlist check on `hostname` or `host`, or a comparison of that host to a constant, is mitigated: the model still reviews it, and the heuristic pass does not emit a candidate. A fixed base URL whose only request data is a path segment passed through `encodeURIComponent` is not a candidate. Other heuristic candidates are low confidence. When the function does not block private or metadata addresses (`169.254.169.254`, `localhost`, RFC1918), the candidate says so.
 
-With a provider, Faultline makes one model call per selected sink, at most 8, and fences the handler source as untrusted data. Parsing, grounding, and the candidate cap are the same helpers the other hunters use. CWE is CWE-918. Class is `ssrf`.
+With a provider, Faultline makes one model call per selected sink, at most 40 (`--max-sites`), and fences the handler source as untrusted data. Parsing, grounding, and the candidate cap are the same helpers the other hunters use. CWE is CWE-918. Class is `ssrf`.
 
 Reviewed SSRF coverage rows are `hunted`. Handlers with no selected sink, a fixed encoded path, an outbound call that does not use request input, or a sink past the cap are `skipped` with a reason. Candidates still are not findings.
 
@@ -142,7 +142,7 @@ export FAULTLINE_PROVIDER=codex
 pnpm exec faultline scan . --provider codex --model <model-id>
 ```
 
-`openai` and `anthropic` requests time out after 60 seconds. HTTP 429 and 5xx responses are retried up to twice, with backoff. Other HTTP errors are not retried. `codex` times out after 120 seconds, caps captured output at 1000000 bytes, runs at most 2 processes at once, and is not retried. Hunter caps are unchanged: 8 sites, 4000 characters, and 3 candidates. A name that is not `fake`, `openai`, `anthropic`, or `codex` exits with an error and does not invent a summary.
+`openai` and `anthropic` requests time out after 60 seconds. HTTP 429 and 5xx responses are retried up to twice, with backoff. Other HTTP errors are not retried. `codex` times out after 120 seconds, caps captured output at 1000000 bytes, runs at most 2 processes at once, and is not retried. Each hunter reviews at most 40 sites (`--max-sites`), ranked so a request-tainted sink is reviewed before an untainted dynamic string and a constant. Source fences stay at 4000 characters, and each site still yields at most 3 candidates. A name that is not `fake`, `openai`, `anthropic`, or `codex` exits with an error and does not invent a summary.
 
 ## Pull request scope
 
