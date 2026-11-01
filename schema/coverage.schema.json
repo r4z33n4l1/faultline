@@ -153,13 +153,72 @@
         ],
         "additionalProperties": false
       }
+    },
+    "discovery": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "handler",
+              "middleware",
+              "controller",
+              "config",
+              "fallback"
+            ]
+          },
+          "start_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "end_line": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "reviewed",
+              "skipped"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "kind",
+          "start_line",
+          "end_line",
+          "status",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
     "schema_version",
     "target",
     "units",
-    "skipped"
+    "skipped",
+    "discovery"
   ],
   "additionalProperties": false
 }

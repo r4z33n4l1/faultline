@@ -35,6 +35,8 @@ export interface BenchRequest {
   inventory?: CollectOptions;
   /** Per-hunter site budget. Defaults to the shared cap when omitted. */
   maxSites?: number;
+  /** Discovery model calls. Defaults to the discovery budget. Ignored without a provider. */
+  discoveryBudget?: number;
   startedAt?: Date;
   runId?: string;
 }
@@ -237,6 +239,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
     keepInconclusive?: boolean;
     inventory?: CollectOptions;
     maxSites?: number;
+    discoveryBudget?: number;
     startedAt?: Date;
     runId?: string;
   } = {
@@ -260,6 +263,9 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
   }
   if (request.maxSites !== undefined) {
     scan.maxSites = request.maxSites;
+  }
+  if (request.discoveryBudget !== undefined) {
+    scan.discoveryBudget = request.discoveryBudget;
   }
   await executeScan(scan);
   const stageName = request.stage === "candidates" ? "candidates.json" : "findings.json";

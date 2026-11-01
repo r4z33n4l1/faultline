@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { discoverSites } from "../discovery/run.js";
+import { resolveDiscoveryBudget } from "../discovery/types.js";
 import { runHunters } from "../recon/run.js";
 import { writeRunOutput } from "../output.js";
 import { provenanceFor, runPipeline } from "../pipeline.js";
@@ -9,6 +11,7 @@ import type { ModelProvider } from "../providers/types.js";
 import { renderArchitecture } from "../recon/architecture.js";
 import {
   applyCoverageMarks,
+  applyDiscoveryRecords,
   buildCoverage,
   serializeCoverage,
   type CoverageMark,
@@ -46,6 +49,8 @@ export interface PrRequest {
   inventory?: CollectOptions;
   /** Per-hunter site budget. Defaults to the shared cap when omitted. */
   maxSites?: number;
+  /** Discovery model calls. Defaults to the discovery budget. Ignored without a provider. */
+  discoveryBudget?: number;
   startedAt?: Date;
   runId?: string;
 }
@@ -65,11 +70,22 @@ export async function executePr(request: PrRequest): Promise<void> {
   const startedAt = request.startedAt ?? new Date();
   const runId = request.runId ?? randomUUID();
   const marks = new Map<string, CoverageMark>();
+  const scoped = scopeInventory(inventory, new Set(changed.map((file) => file.path)));
+  const discovered =
+    request.provider === undefined
+      ? { sites: [], records: [] }
+      : await discoverSites({
+          root: request.repo,
+          inventory: scoped,
+          provider: request.provider,
+          budget: resolveDiscoveryBudget(request.discoveryBudget),
+        });
   const ctx: HunterContext = {
     root: request.repo,
     target: request.repoLabel,
-    inventory: scopeInventory(inventory, new Set(changed.map((file) => file.path))),
+    inventory: scoped,
     ...(request.maxSites === undefined ? {} : { maxSites: request.maxSites }),
+    ...(discovered.sites.length === 0 ? {} : { discovered: discovered.sites }),
     markCoverage(unitId, status, reason) {
       marks.set(unitId, { status, reason });
     },
@@ -82,7 +98,10 @@ export async function executePr(request: PrRequest): Promise<void> {
     candidateOverlapsDiff(candidate, changed, request.context),
   );
   const coverage = applyOutsideDiff(
-    applyCoverageMarks(buildCoverage(request.repoLabel, inventory), marks),
+    applyDiscoveryRecords(
+      applyCoverageMarks(buildCoverage(request.repoLabel, inventory), marks),
+      discovered.records,
+    ),
     changed,
     request.context,
   );
@@ -172,6 +191,12 @@ export function applyOutsideDiff(
         return { ...unit, status: "skipped" as const, reason: OUTSIDE_DIFF_REASON };
       }
       return unit;
+    }),
+    discovery: coverage.discovery.map((record) => {
+      if (!byPath.has(record.path)) {
+        return { ...record, status: "skipped" as const, reason: OUTSIDE_DIFF_REASON };
+      }
+      return record;
     }),
   });
 }

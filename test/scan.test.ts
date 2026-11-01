@@ -123,7 +123,7 @@ it("scan writes recon output from FakeProvider and never emits the fixture secre
   expect(candidates.run.id).toBe(findings.run.id);
   expect(files["report.md"]).toContain("unvalidated candidates: 0, not reported as findings");
 
-  expect(provider.calls).toHaveLength(1);
+  expect(provider.calls.length).toBeGreaterThan(1);
   const call = provider.calls[0];
   expect(call?.messages.map((message) => message.role)).toEqual(["system", "user"]);
   const system = call?.messages[0]?.content ?? "";
@@ -143,8 +143,10 @@ it("scan writes recon output from FakeProvider and never emits the fixture secre
     ...Object.values(files),
     system,
     user,
-    JSON.stringify(call),
+    JSON.stringify(provider.calls),
   ].join("\n");
+  expect(coverage.discovery.length).toBeGreaterThan(0);
+  expect(coverage.discovery.every((record) => record.reason.length > 0)).toBe(true);
   expect(dumped).not.toContain(secret);
   expect(dumped).not.toContain("FAULTLINE_DUMMY_SECRET");
   expect(captured.stdout()).toContain("findings.sarif");
@@ -274,17 +276,25 @@ it("scan writes the openai architecture summary and keeps the API key out of out
     expect(dumped).not.toContain(key);
     expect(dumped).not.toContain(secret);
     expect(captured.stderr()).toBe("");
-    expect(calls).toHaveLength(1);
+    expect(calls.length).toBeGreaterThan(1);
     expect(calls[0]?.url).toBe("http://127.0.0.1:11434/v1/chat/completions");
     expect(calls[0]?.headers.get("authorization")).toBe(`Bearer ${key}`);
+    expect(
+      calls.every(
+        (call) =>
+          call.url === "http://127.0.0.1:11434/v1/chat/completions" &&
+          call.headers.get("authorization") === `Bearer ${key}`,
+      ),
+    ).toBe(true);
     const body = calls[0]?.body as {
       model?: string;
       messages?: { role: string; content: string }[];
     };
     expect(body.model).toBe("local-model");
     expect(body.messages?.[0]?.content).toContain("untrusted repository data");
-    expect(JSON.stringify(body)).not.toContain(key);
-    expect(JSON.stringify(body)).not.toContain(secret);
+    const bodies = JSON.stringify(calls);
+    expect(bodies).not.toContain(key);
+    expect(bodies).not.toContain(secret);
   } finally {
     globalThis.fetch = originalFetch;
   }
