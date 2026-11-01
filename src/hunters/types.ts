@@ -1,3 +1,4 @@
+import type { DiscoveredSite } from "../discovery/types.js";
 import type { ModelProvider } from "../providers/types.js";
 import type { Inventory } from "../recon/inventory.js";
 import type { Candidate } from "../schema/candidate.js";
@@ -11,6 +12,11 @@ export interface HunterContext {
   provider?: ModelProvider;
   /** Sites each hunter reviews. Defaults to the shared site budget. */
   maxSites?: number;
+  /**
+   * Grounded sites from the discovery pass. Hunters union these with
+   * heuristic sites before the site budget. Unset when no provider ran.
+   */
+  discovered?: readonly DiscoveredSite[];
   markCoverage(
     unitId: string,
     status: Extract<CoverageStatus, "hunted" | "skipped">,

@@ -1,21 +1,33 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { discoverSites } from "../discovery/run.js";
+import {
+  resolveDiscoveryBudget,
+  type DiscoveredSite,
+  type DiscoveryRecord,
+} from "../discovery/types.js";
+import type { ModelProvider } from "../providers/types.js";
 import { hunters } from "../hunters/registry.js";
 import type { HunterContext } from "../hunters/types.js";
 import { writeRunOutput } from "../output.js";
 import { provenanceFor, runPipeline } from "../pipeline.js";
 import { disprovedEntries, inconclusiveEntries, validateCandidates } from "../validator/index.js";
-import type { ModelProvider } from "../providers/types.js";
 import { serializeCandidates, type Candidate } from "../schema/candidate.js";
 import { renderArchitecture } from "./architecture.js";
 import {
   applyCoverageMarks,
+  applyDiscoveryRecords,
   buildCoverage,
   serializeCoverage,
   type CoverageMark,
 } from "./coverage.js";
-import { collectInventory, inventoryCapNote, type CollectOptions } from "./inventory.js";
+import {
+  collectInventory,
+  inventoryCapNote,
+  type CollectOptions,
+  type Inventory,
+} from "./inventory.js";
 
 export interface ScanRequest {
   target: string;
@@ -29,8 +41,27 @@ export interface ScanRequest {
   inventory?: CollectOptions;
   /** Per-hunter site budget. Defaults to the shared cap when omitted. */
   maxSites?: number;
+  /** Discovery model calls. Defaults to the discovery budget. Ignored without a provider. */
+  discoveryBudget?: number;
   startedAt?: Date;
   runId?: string;
+}
+
+async function discoverForProvider(
+  root: string,
+  inventory: Inventory,
+  provider: ModelProvider | undefined,
+  budget: number | undefined,
+): Promise<{ sites: DiscoveredSite[]; records: DiscoveryRecord[] }> {
+  if (provider === undefined) {
+    return { sites: [], records: [] };
+  }
+  return discoverSites({
+    root,
+    inventory,
+    provider,
+    budget: resolveDiscoveryBudget(budget),
+  });
 }
 
 export async function runHunters(ctx: HunterContext): Promise<Candidate[]> {
@@ -58,11 +89,18 @@ export async function executeScan(request: ScanRequest): Promise<void> {
   const startedAt = request.startedAt ?? new Date();
   const runId = request.runId ?? randomUUID();
   const marks = new Map<string, CoverageMark>();
+  const discovered = await discoverForProvider(
+    abs,
+    inventory,
+    request.provider,
+    request.discoveryBudget,
+  );
   const ctx: HunterContext = {
     root: abs,
     target: request.target,
     inventory,
     ...(request.maxSites === undefined ? {} : { maxSites: request.maxSites }),
+    ...(discovered.sites.length === 0 ? {} : { discovered: discovered.sites }),
     markCoverage(unitId, status, reason) {
       marks.set(unitId, { status, reason });
     },
@@ -71,7 +109,10 @@ export async function executeScan(request: ScanRequest): Promise<void> {
     ctx.provider = request.provider;
   }
   const candidates = await runHunters(ctx);
-  const coverage = applyCoverageMarks(buildCoverage(request.target, inventory), marks);
+  const coverage = applyDiscoveryRecords(
+    applyCoverageMarks(buildCoverage(request.target, inventory), marks),
+    discovered.records,
+  );
   const validation =
     request.validate === false
       ? { findings: [], disproved: [], inconclusive: [] }

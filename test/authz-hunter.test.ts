@@ -637,7 +637,11 @@ describe("scan output", () => {
     expect(sarifText).not.toContain("MODEL_ORDER_FP");
     expect(captured.stdout()).not.toContain("MODEL_INVOICE_CANDIDATE");
     expect(captured.stderr()).toBe("");
-    expect(provider.calls).toHaveLength(4);
+    const hunterCalls = provider.calls.filter((call) =>
+      (call.messages[0]?.content ?? "").includes('class "authz_idor"'),
+    );
+    expect(hunterCalls).toHaveLength(3);
+    expect(provider.calls.length).toBeGreaterThan(hunterCalls.length);
 
     const authz = coverage.units.filter((unit) => unit.class === "authz_idor");
     const injection = coverage.units.filter((unit) => unit.class === "injection");

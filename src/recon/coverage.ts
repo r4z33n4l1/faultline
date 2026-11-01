@@ -91,5 +91,20 @@ export function buildCoverage(target: string, inventory: Inventory): CoverageFil
     target,
     units,
     skipped,
+    discovery: [],
   });
+}
+
+/** Attach discovery records. An empty list leaves a ledger that already has none. */
+export function applyDiscoveryRecords(
+  coverage: CoverageFile,
+  records: readonly CoverageFile["discovery"][number][],
+): CoverageFile {
+  if (records.length === 0) {
+    return coverage;
+  }
+  const discovery = [...records].sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  );
+  return coverageFileSchema.parse({ ...coverage, discovery });
 }

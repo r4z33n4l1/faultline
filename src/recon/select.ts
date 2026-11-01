@@ -24,7 +24,8 @@ export const DEFAULT_SKIP_DIRS = new Set([
   ".next",
 ]);
 
-const PRIORITY_DIRS = new Set([
+/** Directory names recon reads first, and that discovery treats as server code. */
+export const SERVER_DIR_NAMES: ReadonlySet<string> = new Set([
   "route",
   "routes",
   "controller",
@@ -142,7 +143,7 @@ export function pathPriority(
   const base = parts[parts.length - 1] ?? "";
   const dirs = parts.slice(0, -1);
   let score = 0;
-  if (dirs.some((part) => PRIORITY_DIRS.has(part.toLowerCase()))) {
+  if (dirs.some((part) => SERVER_DIR_NAMES.has(part.toLowerCase()))) {
     score += 100;
   }
   if (entryBasenames.has(base)) {
