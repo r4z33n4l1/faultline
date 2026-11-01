@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { executeScan } from "../recon/run.js";
 import { candidatesFileSchema, type CandidatesFile } from "../schema/candidate.js";
@@ -209,6 +209,7 @@ export function benchResultFromDetections(
 }
 
 export async function writeBenchResult(outDir: string, result: BenchResult): Promise<void> {
+  await mkdir(outDir, { recursive: true });
   await writeFile(
     resolve(outDir, "bench-result.json"),
     `${JSON.stringify(result, null, 2)}\n`,
