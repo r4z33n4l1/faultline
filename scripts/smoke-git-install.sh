@@ -15,7 +15,7 @@ if [[ -z "$spec" ]]; then
     echo "smoke-git-install: commit first. A local clone installs HEAD only." >&2
     exit 1
   fi
-  git clone --quiet --depth 1 "$root" "$tmp/src"
+  git clone --quiet --depth 1 "file://$root" "$tmp/src"
   spec="git+file://$tmp/src"
 fi
 
