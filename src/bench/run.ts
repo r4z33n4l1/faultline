@@ -215,10 +215,12 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
     cwd: string;
     outDir: string;
     provider?: ModelProvider;
+    validate: boolean;
     startedAt?: Date;
     runId?: string;
   } = {
     target: request.target,
+    validate: request.stage === "findings",
     cwd: request.cwd,
     outDir: request.outDir,
   };

@@ -5,6 +5,7 @@ import { hunters } from "../hunters/registry.js";
 import type { HunterContext } from "../hunters/types.js";
 import { writeRunOutput } from "../output.js";
 import { runPipeline } from "../pipeline.js";
+import { validateCandidates } from "../validator/index.js";
 import type { ModelProvider } from "../providers/types.js";
 import { serializeCandidates, type Candidate } from "../schema/candidate.js";
 import { renderArchitecture } from "./architecture.js";
@@ -21,6 +22,7 @@ export interface ScanRequest {
   cwd: string;
   outDir: string;
   provider?: ModelProvider;
+  validate?: boolean;
   startedAt?: Date;
   runId?: string;
 }
@@ -58,16 +60,22 @@ export async function executeScan(request: ScanRequest): Promise<void> {
   }
   const candidates = await runHunters(ctx);
   const coverage = applyCoverageMarks(buildCoverage(request.target, inventory), marks);
+  const validation =
+    request.validate === false
+      ? { findings: [], disproved: [] }
+      : await validateCandidates(candidates, { root: abs, provider: request.provider });
   const findings = runPipeline({
     mode: "scan",
     target: request.target,
     provider: request.provider,
     startedAt,
     runId,
+    findings: validation.findings,
   });
   await writeRunOutput(request.outDir, findings, {
     scanRoot: abs,
-    unvalidatedCandidates: candidates.length,
+    unvalidatedCandidates: request.validate === false ? candidates.length : 0,
+    disproved: validation.disproved,
   });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");
   await writeFile(join(request.outDir, "coverage.json"), serializeCoverage(coverage), "utf8");

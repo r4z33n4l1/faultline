@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { runHunters } from "../recon/run.js";
 import { writeRunOutput } from "../output.js";
 import { runPipeline } from "../pipeline.js";
+import { validateCandidates } from "../validator/index.js";
 import type { ModelProvider } from "../providers/types.js";
 import { renderArchitecture } from "../recon/architecture.js";
 import {
@@ -32,6 +33,7 @@ export interface PrRequest {
   parsed: ParsedDiff;
   context: number;
   provider?: ModelProvider;
+  validate?: boolean;
   startedAt?: Date;
   runId?: string;
 }
@@ -66,16 +68,22 @@ export async function executePr(request: PrRequest): Promise<void> {
     changed,
     request.context,
   );
+  const validation =
+    request.validate === false
+      ? { findings: [], disproved: [] }
+      : await validateCandidates(candidates, { root: request.repo, provider: request.provider });
   const findings = runPipeline({
     mode: "pr",
     target: request.diffLabel,
     provider: request.provider,
     startedAt,
     runId,
+    findings: validation.findings,
   });
   await writeRunOutput(request.outDir, findings, {
     scanRoot: request.repo,
-    unvalidatedCandidates: candidates.length,
+    unvalidatedCandidates: request.validate === false ? candidates.length : 0,
+    disproved: validation.disproved,
     changedFiles: changed.map((file) => file.path),
     hunkContext: request.context,
   });

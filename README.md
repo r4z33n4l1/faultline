@@ -2,7 +2,7 @@
 
 Faultline is an open-source security-detector CLI for startup engineering teams. It writes only findings that survived a disproof attempt, as `findings.json`, `report.md`, and `findings.sarif`.
 
-**Status: pre-alpha.** `scan` inventories the target, writes `architecture.md` and `coverage.json`, and runs the authz/IDOR, injection, secrets, and SSRF hunters. Those hunters write `candidates.json` only. Candidates are not validated, so `findings.json` and `findings.sarif` stay empty. `report.md` records the unvalidated candidate count and no candidate details. `pr` runs the same hunters on a local unified diff and keeps a candidate only when its lines overlap a changed hunk. The findings schema and `validate` command work.
+**Status: pre-alpha.** `scan` and `pr` run the authz/IDOR, injection, secrets, and SSRF hunters, then independently attempt to disprove each candidate. Model validation requires two independent confirmations with grounded evidence. Without a provider, bounded per-class heuristic checks can promote medium or high confidence candidates; findings identify heuristic validation. Rejected and inconclusive candidates appear with reasons in `report.md`. `--no-validate` keeps the candidates-only behavior. PR hunts remain scoped to changed hunks. The findings schema and `validate` command work.
 
 ## Requirements
 
@@ -113,13 +113,13 @@ The diff is untrusted input. Faultline does not execute it and does not send it 
 
 Recon still covers the repository. `architecture.md` and `report.md` say the run is PR-scoped and list the changed files. Every hunter runs, including secrets, but only on changed files, with the same caps and redaction rules as `scan`. A candidate is kept when its line range overlaps a changed hunk. `--context` (default 3, maximum 20) is the number of extra lines around that hunk. Coverage rows outside the diff are `skipped` with reason `outside-diff`.
 
-`pr` writes the same files as `scan`. `findings.json` and `findings.sarif` stay empty until a validator exists.
+`pr` writes the same files as `scan`. Confirmed findings flow into `findings.json` and `findings.sarif`; `--no-validate` leaves them empty.
 
 `validate` prints schema errors with their paths and exits non-zero on failure.
 
 ## Bench
 
-`faultline bench <dir>` scans that directory and scores `candidates.json` against `<dir>/truth.json`. `--stage findings` scores `findings.json` instead. Until a validator exists, that stage reports no detections. Bench does not promote candidates. The method, the seeded app, and why a table is not a product result are in [bench/README.md](bench/README.md).
+`faultline bench <dir>` scans that directory and scores `candidates.json` against `<dir>/truth.json`. `--stage findings` scores `findings.json` instead. That stage runs the validator; the default candidates stage skips validation. The method, the seeded app, and why a table is not a product result are in [bench/README.md](bench/README.md).
 
 ## Develop
 

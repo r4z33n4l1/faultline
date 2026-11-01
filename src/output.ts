@@ -1,3 +1,4 @@
+import type { DisprovedCandidate } from "./validator/index.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -50,6 +51,7 @@ export interface WriteRunOptions {
   scanRoot?: string;
   /** Included in report.md as a count only. Omitted for commands that do not hunt. */
   unvalidatedCandidates?: number;
+  disproved?: readonly DisprovedCandidate[];
   /** Set for a PR-scoped run. Lists repo-relative changed files. An empty list is still PR-scoped. */
   changedFiles?: readonly string[];
   /** Context window recorded in a PR-scoped report. */
@@ -69,6 +71,7 @@ export async function writeRunOutput(
   const findingsText = serializeFindings(file);
   const reportText = renderReport(file, {
     unvalidatedCandidates: options.unvalidatedCandidates,
+    disproved: options.disproved,
     changedFiles: options.changedFiles,
     hunkContext: options.hunkContext,
   });

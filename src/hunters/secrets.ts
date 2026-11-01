@@ -915,3 +915,22 @@ export const secretsHunter: Hunter = {
     return sortCandidates(dedupeCandidates([...collected, ...envCandidates]));
   },
 };
+
+/** Reuse credential detection to redact validator source and prose. */
+export function redactSecretsFrom(text: string, sources: readonly string[]): string {
+  const values = sources.flatMap((source) => {
+    const values = scanText(source).redactions;
+    for (const line of source.split(/\r?\n/)) {
+      const assignment = assignmentOnLine(line);
+      if (
+        assignment !== undefined &&
+        (isSensitiveName(assignment.name) || isJwtSecretName(assignment.name)) &&
+        !isPlaceholder(assignment.value)
+      ) {
+        values.push(assignment.value);
+      }
+    }
+    return values;
+  });
+  return applyRedactions(text, values);
+}

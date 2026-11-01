@@ -121,7 +121,7 @@ it("scan writes recon output from FakeProvider and never emits the fixture secre
     location: { file: ".env", start_line: 1 },
   });
   expect(candidates.run.id).toBe(findings.run.id);
-  expect(files["report.md"]).toContain("unvalidated candidates: 1, not reported as findings");
+  expect(files["report.md"]).toContain("unvalidated candidates: 0, not reported as findings");
 
   expect(provider.calls).toHaveLength(1);
   const call = provider.calls[0];

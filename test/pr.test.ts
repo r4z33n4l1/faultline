@@ -136,7 +136,7 @@ describe("faultline pr", () => {
     expect(report).toContain("This run is PR-scoped.");
     expect(report).toContain("3-line context window");
     expect(report).toContain("- `src/app.ts`");
-    expect(report).toContain("unvalidated candidates: 1, not reported as findings");
+    expect(report).toContain("unvalidated candidates: 0, not reported as findings");
     expect(report).toContain("No confirmed findings.");
     expect(report).not.toContain("GET /notes/:noteId");
     const changedSection = report.split("## Changed files")[1]?.split("## Summary")[0] ?? "";
