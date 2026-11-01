@@ -20,6 +20,8 @@ The same install, with the package and the command separated:
 npx --yes --package github:r4z33n4l1/faultline -- faultline scan . --out ./faultline-out
 ```
 
+Some npm builds fail that `--package` form for a git spec with `GitFetcher requires an Arborist constructor to pack a tarball`. The positional command above is the one CI runs.
+
 `npx github:r4z33n4l1/faultline` tracks the default branch. A branch or commit ref is `github:r4z33n4l1/faultline#<ref>`. CI uses that form so the job installs the commit under test rather than `main`. See `.github/workflows/ci.yml` and `scripts/smoke-git-install.sh`. The smoke scan target is `test/fixtures/idor-app`. It checks that the six scan outputs exist and that findings, candidates, and coverage parse. It does not print file contents.
 
 A checkout of this repo does not need npx. `pnpm install` runs `prepare` and compiles `dist/`. Then:

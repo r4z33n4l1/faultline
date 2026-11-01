@@ -25,18 +25,22 @@ if [[ ! -d "$fixture" ]]; then
 fi
 
 out="$tmp/out"
-echo "smoke-git-install: npx --package $spec faultline scan <fixture>"
+echo "smoke-git-install: node $(node -v) npm $(npm -v)"
+echo "smoke-git-install: npx $spec scan <fixture>"
 
-# `--package` is the explicit form of `npx github:r4z33n4l1/faultline scan .`.
-npx --yes --package "$spec" -- faultline --version
-npx --yes --package "$spec" -- faultline scan "$fixture" --out "$out"
+# Positional form of `npx github:r4z33n4l1/faultline scan .`.
+# `npx --package github:...` fails on some npm builds with
+# "GitFetcher requires an Arborist constructor to pack a tarball".
+npx --yes "$spec" scan "$fixture" --out "$out"
 
-node --input-type=module - "$out" <<'EOF'
+expected="$(node -p "require('$root/package.json').version")"
+node --input-type=module - "$out" "$expected" <<'EOF'
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const out = process.argv[2];
-if (out === undefined || out.length === 0) {
+const expectedVersion = process.argv[3];
+if (out === undefined || out.length === 0 || expectedVersion === undefined) {
   process.exit(1);
 }
 const names = [
@@ -59,6 +63,10 @@ const candidates = JSON.parse(await readFile(join(out, "candidates.json"), "utf8
 const coverage = JSON.parse(await readFile(join(out, "coverage.json"), "utf8"));
 if (!Array.isArray(findings.findings)) {
   console.error("findings.json has no findings array");
+  process.exit(1);
+}
+if (findings.tool?.name !== "faultline" || findings.tool?.version !== expectedVersion) {
+  console.error("unexpected findings tool identity");
   process.exit(1);
 }
 if (!Array.isArray(candidates.candidates)) {

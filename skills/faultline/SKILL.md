@@ -28,11 +28,7 @@ Node.js 20 or newer. No global install. From the target repository:
 npx github:r4z33n4l1/faultline scan . --out ./faultline-out
 ```
 
-That command is npm installing `github:r4z33n4l1/faultline`, running its `prepare` build, and invoking the `faultline` bin. Equivalent explicit form:
-
-```bash
-npx --yes --package github:r4z33n4l1/faultline -- faultline scan . --out ./faultline-out
-```
+That command is npm installing `github:r4z33n4l1/faultline`, running its `prepare` build, and invoking the `faultline` bin. Use this positional form. On some npm builds, `npx --package github:...` fails while packing the git repo.
 
 If this checkout already has `node_modules/.bin/faultline` after `pnpm install`, use `pnpm exec faultline` instead of npx.
 
