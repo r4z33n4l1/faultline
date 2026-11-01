@@ -48,7 +48,7 @@ export const ALLOWLIST_NOTE = "Hostname allowlist or constant host check visible
 const INPUT_KINDS = ["params", "query", "body", "headers"] as const;
 type InputKind = (typeof INPUT_KINDS)[number];
 
-type Family = "fetch" | "node-fetch" | "axios" | "got" | "http" | "undici";
+type Family = "fetch" | "node-fetch" | "axios" | "got" | "http" | "undici" | "needle";
 type Placement = "none" | "safe" | "query" | "path" | "host";
 
 interface Binding {
@@ -181,6 +181,10 @@ const SINK_RULES: { pattern: RegExp; family: Family }[] = [
   },
   { pattern: /(?<![\w$])https?\s*\.\s*(?:request|get)\s*\(/g, family: "http" },
   { pattern: /(?<![\w$])undici\s*\.\s*request\s*\(/g, family: "undici" },
+  {
+    pattern: /(?<![\w$])needle(?:\s*\.\s*(?:request|get|post|put|patch|delete|head))?\s*\(/g,
+    family: "needle",
+  },
 ];
 
 const PLACEMENT_RANK: Record<Placement, number> = {

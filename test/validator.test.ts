@@ -128,6 +128,72 @@ it("redacts secrets from source, candidate prose, model summaries and drop reaso
   }
 });
 
+it("does not refute a caller-supplied id lookup, a $where argument, or a session secret literal", async () => {
+  const root = await mkdtemp(join(tmpdir(), "faultline-validator-shapes-"));
+  roots.push(root);
+  await writeFile(
+    join(root, "app.ts"),
+    [
+      "export function edit(req) {",
+      "  return db.User.find({ where: { id: req.body.id } });",
+      "}",
+      "export function render(req) {",
+      "  return { userId: req.user.id };",
+      "}",
+      "export function criteria(threshold) {",
+      "  return { $where: `this.stocks > '${threshold}'` };",
+      "}",
+      "export const session = { secret: 'keyboard cat' };",
+      "",
+    ].join("\n"),
+  );
+  const base = {
+    severity: "medium" as const,
+    confidence: { level: "medium" as const, reason: "Reviewed pattern." },
+    evidence: [{ file: "app.ts", line: 2, note: "Cited sink." }],
+  };
+  const result = await validateCandidates(
+    [
+      {
+        ...base,
+        class: "authz_idor",
+        cwe: "CWE-639",
+        location: { file: "app.ts", start_line: 2, end_line: 2 },
+        symbol: "find",
+        root_cause: "Lookup uses the caller id",
+      },
+      {
+        ...base,
+        class: "injection",
+        cwe: "CWE-943",
+        location: { file: "app.ts", start_line: 8, end_line: 8 },
+        symbol: "$where",
+        root_cause: "Dynamic where",
+        evidence: [{ file: "app.ts", line: 8, note: "Where clause." }],
+      },
+      {
+        ...base,
+        class: "secrets",
+        cwe: "CWE-798",
+        location: { file: "app.ts", start_line: 10, end_line: 10 },
+        symbol: "secret",
+        root_cause: "Session secret literal",
+        evidence: [{ file: "app.ts", line: 10, note: "Literal." }],
+      },
+    ],
+    { root },
+  );
+  expect(result.disproved.map((item) => item.reason)).not.toContain(
+    "Ownership or authorization check is present.",
+  );
+  expect(result.disproved.map((item) => item.verdict)).not.toContain("rejected");
+  expect(result.findings.map((finding) => finding.class).sort()).toEqual([
+    "authz_idor",
+    "injection",
+    "secrets",
+  ]);
+});
+
 it.each(["scan", "pr"] as const)(
   "writes validated %s findings and report reasons",
   async (mode) => {
