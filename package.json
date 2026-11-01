@@ -19,6 +19,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json && node scripts/link-bin.mjs",
+    "prepublishOnly": "node -e \"console.error('faultline is not published to npm. Use: npx github:r4z33n4l1/faultline'); process.exit(1)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",

@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
-import { runCli, type CliIo } from "../src/cli.js";
+import { isCliEntrypoint, runCli, type CliIo } from "../src/cli.js";
 import { sarifLogSchema } from "../src/sarif.js";
 import { candidatesFileSchema } from "../src/schema/candidate.js";
 import { findingsFileSchema } from "../src/schema/finding.js";
@@ -28,6 +29,19 @@ function capture(): { io: CliIo; stdout: () => string; stderr: () => string } {
 async function tempDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "faultline-cli-"));
 }
+
+it("treats a bin symlink as the CLI entrypoint", async () => {
+  const dir = await tempDir();
+  const target = join(dir, "cli.js");
+  const link = join(dir, "faultline");
+  await writeFile(target, "");
+  await symlink("cli.js", link);
+  const moduleUrl = pathToFileURL(target).href;
+  expect(isCliEntrypoint(link, moduleUrl)).toBe(true);
+  expect(isCliEntrypoint(target, moduleUrl)).toBe(true);
+  expect(isCliEntrypoint(undefined, moduleUrl)).toBe(false);
+  expect(isCliEntrypoint(join(dir, "missing.js"), moduleUrl)).toBe(false);
+});
 
 it("validate exits 0 for a valid file and 1 with a path for a bad file", async () => {
   const dir = await tempDir();

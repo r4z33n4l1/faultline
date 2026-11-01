@@ -39,3 +39,22 @@ jobs:
 
       - name: Schema drift
         run: pnpm schema:check
+
+  smoke:
+    name: git install smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # `npx github:r4z33n4l1/faultline` installs the default branch. This job
+      # installs the commit under test, which is the same npm git path with a ref.
+      - name: Install from GitHub and scan a fixture
+        env:
+          FAULTLINE_SMOKE_SPEC: github:r4z33n4l1/faultline#${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash scripts/smoke-git-install.sh

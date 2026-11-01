@@ -7,7 +7,17 @@ Faultline is an open-source security-detector CLI for startup engineering teams.
 ## Requirements
 
 - Node.js 20 or newer
-- pnpm
+- pnpm, for a checkout of this repo
+
+## Run without a global install
+
+Faultline is not published to the npm registry. `prepublishOnly` exits with an error if `npm publish` is run. From Node.js 20 or newer, npm can install this git repo, run `prepare` (which compiles `dist/` with `tsc`), and start the `faultline` bin:
+
+```bash
+npx github:r4z33n4l1/faultline scan .
+```
+
+A checkout of this repo runs the same `prepare` script on `pnpm install`. Agent install paths for Claude Code, Codex, and Cursor are in [docs/skill.md](docs/skill.md). How these checks relate to the Agent Baseline software-factory boundaries is in [docs/agent-baseline.md](docs/agent-baseline.md).
 
 ## Usage
 
