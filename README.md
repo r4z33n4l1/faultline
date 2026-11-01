@@ -56,6 +56,8 @@ gh pr diff https://github.com/org/repo/pull/1 | pnpm exec faultline pr -
 
 `findings.sarif` is SARIF 2.1.0 for the same confirmed findings as `findings.json`. Paths in it are relative to the scanned directory. `candidates.json` is not a findings file. Nothing in it is confirmed.
 
+Recon skips `node_modules`, build and coverage output, lockfiles, minified bundles, test snapshots, and frontend asset trees such as `frontend/src/assets`. It respects `.gitignore`. `--include` and `--exclude` take globs; an include match is kept. Defaults are `--max-files 5000` and `--max-bytes 8000000`. When a cap binds, server-side paths (route, controller, handler, api, server, models, and lib directories, plus files that import a server framework, a database client, `child_process`, or an HTTP client) are read before other files. `report.md` says when a cap binds. `coverage.json` lists every skipped path and the reason, so a truncation is not silent.
+
 ## Authz/IDOR hunter
 
 `scan` selects route handlers that take an object identifier (path, query, or body) and touch a data store. It notes whether auth middleware and an ownership or tenant check are visible.

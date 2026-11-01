@@ -1,5 +1,10 @@
 import type { ModelMessage, ModelProvider } from "../providers/types.js";
-import { serializeInventory, type Inventory, type InventoryMatch } from "./inventory.js";
+import {
+  inventoryCapNote,
+  serializeInventory,
+  type Inventory,
+  type InventoryMatch,
+} from "./inventory.js";
 
 export function fenceData(data: string): string {
   let ticks = "```";
@@ -65,7 +70,7 @@ export function renderInventoryArchitecture(inventory: Inventory): string {
     "Trust boundaries, the authn/authz model, and data flows were not summarized.",
     "",
   ];
-  if (inventory.truncated) {
+  if (inventoryCapNote(inventory) !== undefined) {
     lines.push("Inventory truncated at the file or byte cap.", "");
   }
 

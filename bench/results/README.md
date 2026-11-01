@@ -2,6 +2,7 @@
 
 These numbers are pre-validator heuristic runs. They are not Faultline product results.
 Faultline ran with no provider, so the model column is `none, heuristic`.
+The findings stage runs the heuristic validator and still calls no model.
 Semgrep is the free static baseline. Its stage is `scan` because it has no candidate validator.
 Precision and recall use the same site-level matrix as `faultline bench`: class, path, and line overlap.
 Unmatched detections are not false positives. A rate is `n/a` when its denominator is zero.

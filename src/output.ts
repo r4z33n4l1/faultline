@@ -56,6 +56,8 @@ export interface WriteRunOptions {
   changedFiles?: readonly string[];
   /** Context window recorded in a PR-scoped report. */
   hunkContext?: number;
+  /** Set when a file or byte cap left paths unread. */
+  inventoryNote?: string;
 }
 
 export async function writeRunOutput(
@@ -74,6 +76,7 @@ export async function writeRunOutput(
     disproved: options.disproved,
     changedFiles: options.changedFiles,
     hunkContext: options.hunkContext,
+    inventoryNote: options.inventoryNote,
   });
   const sarifText = serializeSarif(toSarif(file, scanRoot));
   await mkdir(outDir, { recursive: true });

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -288,4 +288,62 @@ it("scan writes the openai architecture summary and keeps the API key out of out
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+it("records a file cap in the report and coverage, and honors include and exclude", async () => {
+  const dir = await outDir();
+  await mkdir(join(dir, "routes"), { recursive: true });
+  await writeFile(join(dir, "a.ts"), "export const a = 1;\n");
+  await writeFile(join(dir, "routes", "ok.ts"), 'app.get("/ok", () => {});\n');
+  const capped = capture();
+  const cappedOut = join(dir, "capped");
+  expect(
+    await runCli(["scan", ".", "--out", cappedOut, "--max-files", "1", "--no-validate"], {
+      ...capped.io,
+      cwd: dir,
+    }),
+  ).toBe(0);
+  const report = await readFile(join(cappedOut, "report.md"), "utf8");
+  expect(report).toContain("## Inventory");
+  expect(report).toContain("Inventory caps bound (max-files)");
+  expect(report).toContain("coverage.json");
+  const coverage = coverageFileSchema.parse(
+    JSON.parse(await readFile(join(cappedOut, "coverage.json"), "utf8")) as unknown,
+  );
+  expect(coverage.skipped).toContainEqual({ path: "a.ts", reason: "max-files" });
+  expect(coverage.units.some((unit) => unit.path === "routes/ok.ts")).toBe(true);
+  expect(await readFile(join(cappedOut, "architecture.md"), "utf8")).toContain(
+    "Inventory truncated at the file or byte cap.",
+  );
+
+  const rejected = capture();
+  expect(await runCli(["scan", ".", "--max-files", "0"], { ...rejected.io, cwd: dir })).toBe(1);
+  expect(rejected.stderr()).toContain("--max-files must be a positive integer");
+
+  const filteredOut = join(dir, "filtered");
+  const filtered = capture();
+  expect(
+    await runCli(
+      [
+        "scan",
+        ".",
+        "--out",
+        filteredOut,
+        "--exclude",
+        "a.ts",
+        "--include",
+        "routes/ok.ts",
+        "--no-validate",
+      ],
+      { ...filtered.io, cwd: dir },
+    ),
+  ).toBe(0);
+  const filteredReport = await readFile(join(filteredOut, "report.md"), "utf8");
+  expect(filteredReport).not.toContain("Inventory caps bound");
+  const filteredCoverage = coverageFileSchema.parse(
+    JSON.parse(await readFile(join(filteredOut, "coverage.json"), "utf8")) as unknown,
+  );
+  expect(filteredCoverage.skipped).toContainEqual({ path: "a.ts", reason: "exclude" });
+  expect(filteredCoverage.units.some((unit) => unit.path === "routes/ok.ts")).toBe(true);
+  expect(filteredCoverage.units.some((unit) => unit.path === "a.ts")).toBe(false);
 });

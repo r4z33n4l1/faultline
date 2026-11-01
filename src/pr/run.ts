@@ -13,7 +13,13 @@ import {
   serializeCoverage,
   type CoverageMark,
 } from "../recon/coverage.js";
-import { collectInventory, type Inventory, type InventoryMatch } from "../recon/inventory.js";
+import {
+  collectInventory,
+  inventoryCapNote,
+  type CollectOptions,
+  type Inventory,
+  type InventoryMatch,
+} from "../recon/inventory.js";
 import { serializeCandidates } from "../schema/candidate.js";
 import type { CoverageFile } from "../schema/coverage.js";
 import { coverageFileSchema } from "../schema/coverage.js";
@@ -34,12 +40,19 @@ export interface PrRequest {
   context: number;
   provider?: ModelProvider;
   validate?: boolean;
+  /** Include and exclude globs, and file or byte caps. Defaults apply when omitted. */
+  inventory?: CollectOptions;
   startedAt?: Date;
   runId?: string;
 }
 
 export async function executePr(request: PrRequest): Promise<void> {
-  const inventory = await collectInventory(request.repo, { target: request.repoLabel });
+  const inventory = await collectInventory(request.repo, {
+    target: request.repoLabel,
+    limits: request.inventory?.limits,
+    include: request.inventory?.include,
+    exclude: request.inventory?.exclude,
+  });
   const changed = request.parsed.files;
   const architecture = markChangedFiles(
     await renderArchitecture(inventory, request.provider),
@@ -86,6 +99,7 @@ export async function executePr(request: PrRequest): Promise<void> {
     disproved: validation.disproved,
     changedFiles: changed.map((file) => file.path),
     hunkContext: request.context,
+    inventoryNote: inventoryCapNote(inventory),
   });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");
   await writeFile(join(request.outDir, "coverage.json"), serializeCoverage(coverage), "utf8");

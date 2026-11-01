@@ -93,6 +93,8 @@ export interface ReportOptions {
   changedFiles?: readonly string[];
   /** Lines of context used for hunk overlap. Reported only when `changedFiles` is set. */
   hunkContext?: number;
+  /** Set when a file or byte cap left paths unread. */
+  inventoryNote?: string;
 }
 
 export function renderReport(file: FindingsFile, options: ReportOptions = {}): string {
@@ -139,6 +141,9 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
     lines.push(
       `unvalidated candidates: ${options.unvalidatedCandidates}, not reported as findings`,
     );
+  }
+  if (options.inventoryNote !== undefined) {
+    lines.push("", "## Inventory", "", options.inventoryNote, "");
   }
   lines.push("", "## Findings", "");
 

@@ -19,6 +19,7 @@ import { executePr } from "./pr/run.js";
 import { providerUnavailableMessage, resolveProviderConfig } from "./providers/config.js";
 import { createProvider } from "./providers/registry.js";
 import type { ModelProvider } from "./providers/types.js";
+import type { CollectOptions, InventoryLimits } from "./recon/inventory.js";
 import { executeScan } from "./recon/run.js";
 import { findingsFileSchema, formatZodIssues } from "./schema/finding.js";
 import { TOOL_VERSION } from "./version.js";
@@ -42,6 +43,56 @@ const defaultIo: CliIo = {
     process.stderr.write(text);
   },
 };
+
+function appendGlob(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function parsePositiveInt(flag: string, value: string): number {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`${flag} must be a positive integer`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error(`${flag} must be a positive integer`);
+  }
+  return parsed;
+}
+
+interface InventoryFlagInput {
+  include?: string[];
+  exclude?: string[];
+  maxFiles?: string;
+  maxBytes?: string;
+}
+
+function selectionFromFlags(opts: InventoryFlagInput): CollectOptions {
+  const limits: Partial<InventoryLimits> = {};
+  if (opts.maxFiles !== undefined) {
+    limits.maxFiles = parsePositiveInt("--max-files", opts.maxFiles);
+  }
+  if (opts.maxBytes !== undefined) {
+    limits.maxBytes = parsePositiveInt("--max-bytes", opts.maxBytes);
+  }
+  return {
+    ...(opts.include === undefined || opts.include.length === 0 ? {} : { include: opts.include }),
+    ...(opts.exclude === undefined || opts.exclude.length === 0 ? {} : { exclude: opts.exclude }),
+    ...(opts.maxFiles === undefined && opts.maxBytes === undefined ? {} : { limits }),
+  };
+}
+
+function addInventoryOptions(command: Command): Command {
+  return command
+    .option(
+      "--include <glob>",
+      "re-include a path skipped by a default exclude, gitignore, or --exclude",
+      appendGlob,
+      [] as string[],
+    )
+    .option("--exclude <glob>", "skip paths matching this glob", appendGlob, [] as string[])
+    .option("--max-files <count>", "maximum source and manifest files to read")
+    .option("--max-bytes <count>", "maximum bytes of source and manifests to read");
+}
 
 function messageOf(error: unknown): string {
   if (error instanceof Error) {
@@ -161,6 +212,7 @@ async function runScan(
   out: string,
   providerFlag: string | undefined,
   modelFlag: string | undefined,
+  inventory: CollectOptions,
   io: CliIo,
   validate = true,
 ): Promise<number> {
@@ -180,6 +232,7 @@ async function runScan(
       outDir,
       provider,
       validate,
+      inventory,
     });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
@@ -205,6 +258,7 @@ async function runCorpus(
   manifestFlag: string,
   providerFlag: string | undefined,
   modelFlag: string | undefined,
+  inventory: CollectOptions,
   io: CliIo,
 ): Promise<number> {
   if (!isBenchStage(stage)) {
@@ -306,6 +360,7 @@ async function runCorpus(
       stage,
       truthPath: paths.truthLabel,
       model,
+      inventory,
       ...(provider === undefined ? {} : { provider }),
     });
   } catch (error) {
@@ -323,6 +378,7 @@ async function runBench(
   truthFlag: string | undefined,
   providerFlag: string | undefined,
   modelFlag: string | undefined,
+  inventory: CollectOptions,
   io: CliIo,
 ): Promise<number> {
   if (!isBenchStage(stage)) {
@@ -354,6 +410,7 @@ async function runBench(
       stage,
       truthPath,
       model,
+      inventory,
       ...(provider === undefined ? {} : { provider }),
     });
   } catch (error) {
@@ -371,6 +428,7 @@ async function runPr(
   contextFlag: string,
   providerFlag: string | undefined,
   modelFlag: string | undefined,
+  inventory: CollectOptions,
   io: CliIo,
   validate = true,
 ): Promise<number> {
@@ -430,6 +488,7 @@ async function runPr(
       context,
       provider,
       validate,
+      inventory,
     });
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
@@ -473,15 +532,36 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .argument("<path>", "target directory")
     .option("-o, --out <dir>", "output directory", "./faultline-out")
     .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
-    .option("--model <id>", "model id (overrides FAULTLINE_MODEL)")
-    .action(
-      async (
-        target: string,
-        opts: { out: string; provider?: string; model?: string; validate: boolean },
-      ) => {
-        code = await runScan(target, opts.out, opts.provider, opts.model, io, opts.validate);
-      },
-    );
+    .option("--model <id>", "model id (overrides FAULTLINE_MODEL)");
+  addInventoryOptions(program.commands[program.commands.length - 1] ?? program).action(
+    async (
+      target: string,
+      opts: {
+        out: string;
+        provider?: string;
+        model?: string;
+        validate: boolean;
+      } & InventoryFlagInput,
+    ) => {
+      let inventory: CollectOptions;
+      try {
+        inventory = selectionFromFlags(opts);
+      } catch (error) {
+        io.stderr(`${messageOf(error)}\n`);
+        code = 1;
+        return;
+      }
+      code = await runScan(
+        target,
+        opts.out,
+        opts.provider,
+        opts.model,
+        inventory,
+        io,
+        opts.validate,
+      );
+    },
+  );
 
   program
     .command("bench")
@@ -504,68 +584,78 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .option("--baseline <tool>", "score Semgrep OSS instead of a Faultline scan")
     .option("--sarif <file>", "score a SARIF file with the shared importer; does not run a tool")
     .option("--tool-name <name>", "tool name recorded for --sarif")
-    .option("--tool-version <version>", "tool version recorded for --sarif")
-    .action(
-      async (
-        target: string | undefined,
-        opts: {
-          out: string;
-          stage: string;
-          truth?: string;
-          provider?: string;
-          model?: string;
-          corpus?: string;
-          manifest: string;
-          cacheOnly?: boolean;
-          baseline?: string;
-          sarif?: string;
-          toolName?: string;
-          toolVersion?: string;
-        },
-      ) => {
-        if (opts.corpus !== undefined && target !== undefined) {
-          io.stderr("Pass a directory or --corpus, not both\n");
-          code = 1;
-          return;
-        }
-        if (opts.corpus !== undefined) {
-          code = await runCorpus(
-            opts.corpus,
-            opts.out,
-            opts.stage,
-            opts.cacheOnly === true,
-            opts.baseline,
-            opts.sarif,
-            opts.toolName,
-            opts.toolVersion,
-            opts.manifest,
-            opts.provider,
-            opts.model,
-            io,
-          );
-          return;
-        }
-        if (target === undefined) {
-          io.stderr("Pass a directory or --corpus <name>\n");
-          code = 1;
-          return;
-        }
-        if (opts.baseline !== undefined || opts.sarif !== undefined || opts.cacheOnly === true) {
-          io.stderr("--baseline, --sarif, and --cache-only require --corpus\n");
-          code = 1;
-          return;
-        }
-        code = await runBench(
-          target,
+    .option("--tool-version <version>", "tool version recorded for --sarif");
+  addInventoryOptions(program.commands[program.commands.length - 1] ?? program).action(
+    async (
+      target: string | undefined,
+      opts: {
+        out: string;
+        stage: string;
+        truth?: string;
+        provider?: string;
+        model?: string;
+        corpus?: string;
+        manifest: string;
+        cacheOnly?: boolean;
+        baseline?: string;
+        sarif?: string;
+        toolName?: string;
+        toolVersion?: string;
+      } & InventoryFlagInput,
+    ) => {
+      let inventory: CollectOptions;
+      try {
+        inventory = selectionFromFlags(opts);
+      } catch (error) {
+        io.stderr(`${messageOf(error)}\n`);
+        code = 1;
+        return;
+      }
+      if (opts.corpus !== undefined && target !== undefined) {
+        io.stderr("Pass a directory or --corpus, not both\n");
+        code = 1;
+        return;
+      }
+      if (opts.corpus !== undefined) {
+        code = await runCorpus(
+          opts.corpus,
           opts.out,
           opts.stage,
-          opts.truth,
+          opts.cacheOnly === true,
+          opts.baseline,
+          opts.sarif,
+          opts.toolName,
+          opts.toolVersion,
+          opts.manifest,
           opts.provider,
           opts.model,
+          inventory,
           io,
         );
-      },
-    );
+        return;
+      }
+      if (target === undefined) {
+        io.stderr("Pass a directory or --corpus <name>\n");
+        code = 1;
+        return;
+      }
+      if (opts.baseline !== undefined || opts.sarif !== undefined || opts.cacheOnly === true) {
+        io.stderr("--baseline, --sarif, and --cache-only require --corpus\n");
+        code = 1;
+        return;
+      }
+      code = await runBench(
+        target,
+        opts.out,
+        opts.stage,
+        opts.truth,
+        opts.provider,
+        opts.model,
+        inventory,
+        io,
+      );
+    },
+  );
 
   program
     .command("pr")
@@ -578,31 +668,40 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .option("--repo <path>", "repository root after the change", ".")
     .option("--context <lines>", "lines of context around each changed hunk", "3")
     .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
-    .option("--model <id>", "model id (overrides FAULTLINE_MODEL)")
-    .action(
-      async (
-        source: string,
-        opts: {
-          out: string;
-          repo: string;
-          context: string;
-          provider?: string;
-          model?: string;
-          validate: boolean;
-        },
-      ) => {
-        code = await runPr(
-          source,
-          opts.out,
-          opts.repo,
-          opts.context,
-          opts.provider,
-          opts.model,
-          io,
-          opts.validate,
-        );
-      },
-    );
+    .option("--model <id>", "model id (overrides FAULTLINE_MODEL)");
+  addInventoryOptions(program.commands[program.commands.length - 1] ?? program).action(
+    async (
+      source: string,
+      opts: {
+        out: string;
+        repo: string;
+        context: string;
+        provider?: string;
+        model?: string;
+        validate: boolean;
+      } & InventoryFlagInput,
+    ) => {
+      let inventory: CollectOptions;
+      try {
+        inventory = selectionFromFlags(opts);
+      } catch (error) {
+        io.stderr(`${messageOf(error)}\n`);
+        code = 1;
+        return;
+      }
+      code = await runPr(
+        source,
+        opts.out,
+        opts.repo,
+        opts.context,
+        opts.provider,
+        opts.model,
+        inventory,
+        io,
+        opts.validate,
+      );
+    },
+  );
 
   try {
     await program.parseAsync(argv, { from: "user" });

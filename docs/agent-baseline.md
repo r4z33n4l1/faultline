@@ -41,7 +41,7 @@ Reviewed hunter rows in `coverage.json` are `hunted`. Out of scope, over the cap
 
 ## Recon signals
 
-Recon walks the tree, respects `.gitignore`, skips binaries, and stops at a file count and a byte cap. Env and config files are recorded by name. Recon does not read their contents.
+Recon walks the tree, respects `.gitignore`, skips vendored, build, minified, and snapshot paths, and stops at a file count and a byte cap. When a cap binds it reads likely server-side files first and records every skipped path. Env and config files are recorded by name. Recon does not read their contents.
 
 | Signal                                                                                                                                                                                    | Boundary                          | Result      | What is actually recorded                                                                                                       |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
