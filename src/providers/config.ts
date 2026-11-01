@@ -7,6 +7,8 @@ export interface ProviderConfig {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
+  /** Codex executable from `FAULTLINE_CODEX_BIN`. Omitted when unset. */
+  codexBin?: string;
 }
 
 function cleanName(value: string | undefined): string | undefined {
@@ -29,6 +31,7 @@ function cleanKey(value: string | undefined): string | undefined {
  * `--provider` wins over `FAULTLINE_PROVIDER`.
  * `--model` wins over `FAULTLINE_MODEL`.
  * The key is `FAULTLINE_API_KEY`. The base URL is `FAULTLINE_BASE_URL`.
+ * `FAULTLINE_CODEX_BIN` is the Codex executable when the provider is `codex`.
  */
 export function resolveProviderConfig(
   flag: string | undefined,
@@ -51,6 +54,12 @@ export function resolveProviderConfig(
   }
   if (baseUrl !== undefined) {
     config.baseUrl = baseUrl;
+  }
+  if (config.name === "codex") {
+    const codexBin = cleanName(env.FAULTLINE_CODEX_BIN);
+    if (codexBin !== undefined) {
+      config.codexBin = codexBin;
+    }
   }
   return config;
 }

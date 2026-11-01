@@ -68,7 +68,7 @@ Reviewed authz/IDOR coverage rows are `hunted`. Routes that are out of scope, or
 
 Env and config files are recorded by name during recon. Recon does not read their contents. The secrets hunter reads config files and still does not read env files.
 
-With no provider, `architecture.md` is an inventory-only note and hunter candidates come from the deterministic pre-pass. `scan` can pass inventory and handler source to a `ModelProvider`. Repository content is fenced as untrusted data, not instructions. The adapter returns text only. It does not run tools or execute model output. Faultline still checks its own JSON outputs with zod. Each selected authz/IDOR handler, each selected injection sink, each selected secrets site, and each selected SSRF sink adds one provider call after the architecture summary.
+With no provider, `architecture.md` is an inventory-only note and hunter candidates come from the deterministic pre-pass. `scan` can pass inventory and handler source to a `ModelProvider`. Repository content is fenced as untrusted data, not instructions. The adapter returns text only. Faultline does not execute model output. `openai` and `anthropic` do not run tools. `codex` launches the Codex CLI in a read-only sandbox and still returns text only. Faultline still checks its own JSON outputs with zod. Each selected authz/IDOR handler, each selected injection sink, each selected secrets site, and each selected SSRF sink adds one provider call after the architecture summary.
 
 ## Injection hunter
 
@@ -108,10 +108,17 @@ Reviewed SSRF coverage rows are `hunted`. Handlers with no selected sink, a fixe
 
 `anthropic` calls the Anthropic Messages API. The client posts to `{base}/v1/messages`. The default base is `https://api.anthropic.com`. The request uses `max_tokens` 4096.
 
-| Provider    | Default model id          |
-| ----------- | ------------------------- |
-| `openai`    | `gpt-4o-mini`             |
-| `anthropic` | `claude-3-5-haiku-latest` |
+`codex` runs each prompt through the local OpenAI Codex CLI (`codex exec`). It does not read `FAULTLINE_API_KEY`. Sign in with `codex login` on a ChatGPT plan first. The executable is `FAULTLINE_CODEX_BIN`, or `codex` on `PATH`. `--model` is passed as `-m`. With no `--model` and no `FAULTLINE_MODEL`, Codex uses the model configured in the CLI, and bench records that model as null.
+
+Faultline checks `codex login status`, then runs `codex exec` with an argument array and `shell: false`. The prompt is stdin (`-`), not an argument. The working directory is a new empty temporary directory, not the repository being scanned. The sandbox is `read-only`. Approval policy is `never`. User config and execpolicy rules are not loaded. Web search is disabled, and `sandbox_workspace_write.network_access` is set false. Current `codex exec` has no `--no-network` flag; that combination is what blocks the inner agent's commands from using the network. The Codex process itself still calls the ChatGPT service. The session is ephemeral (`--ephemeral`) and is allowed outside a git repo (`--skip-git-repo-check`). The final message is read from `--output-last-message`. If that file is empty, Faultline uses a JSONL `agent_message` when stdout is an event stream. Faultline does not read or copy `~/.codex/auth.json`. API keys and proxy URLs with userinfo are not passed to the child. Token-like strings are redacted from errors. A missing binary or a failed login status exits with an error.
+
+The prompt tells Codex to answer in pure text JSON when the request asks for JSON, with no markdown fence. Hunters and the disproof validator parse that text with the existing zod schemas. Faultline does not send `jsonSchema` and does not pass `--output-schema`. An architecture summary still asks for markdown.
+
+| Provider    | Default model id                                 |
+| ----------- | ------------------------------------------------ |
+| `openai`    | `gpt-4o-mini`                                    |
+| `anthropic` | `claude-3-5-haiku-latest`                        |
+| `codex`     | the Codex CLI's own model (no Faultline default) |
 
 The default model is only the id sent when you leave `--model` and `FAULTLINE_MODEL` unset. It is not a claim about which model is best. Set a model your account can call.
 
@@ -129,7 +136,13 @@ export FAULTLINE_API_KEY=your-key
 pnpm exec faultline scan .
 ```
 
-Requests time out after 60 seconds. HTTP 429 and 5xx responses are retried up to twice, with backoff. Other HTTP errors are not retried. A name that is not `fake`, `openai`, or `anthropic` exits with an error and does not invent a summary.
+```bash
+export FAULTLINE_PROVIDER=codex
+# optional: export FAULTLINE_CODEX_BIN=/path/to/codex
+pnpm exec faultline scan . --provider codex --model <model-id>
+```
+
+`openai` and `anthropic` requests time out after 60 seconds. HTTP 429 and 5xx responses are retried up to twice, with backoff. Other HTTP errors are not retried. `codex` times out after 120 seconds, caps captured output at 1000000 bytes, runs at most 2 processes at once, and is not retried. Hunter caps are unchanged: 8 sites, 4000 characters, and 3 candidates. A name that is not `fake`, `openai`, `anthropic`, or `codex` exits with an error and does not invent a summary.
 
 ## Pull request scope
 

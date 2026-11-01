@@ -169,6 +169,8 @@ async function openProvider(
     apiKey: config.apiKey,
     model: config.model,
     baseUrl: config.baseUrl,
+    codexEnv: env,
+    ...(config.codexBin === undefined ? {} : { codexBin: config.codexBin }),
   });
 }
 
