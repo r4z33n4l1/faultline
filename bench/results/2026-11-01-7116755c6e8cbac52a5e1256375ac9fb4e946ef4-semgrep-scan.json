@@ -1,0 +1,980 @@
+{
+  "schema_version": "1",
+  "label": "pre-validator heuristic",
+  "note": "Pre-validator heuristic. Not a Faultline product result. No model was called.",
+  "citable": false,
+  "date": "2026-11-01",
+  "tool": {
+    "name": "semgrep",
+    "version": "1.183.0"
+  },
+  "model": "none, heuristic",
+  "stage": "scan",
+  "commit": "7116755c6e8cbac52a5e1256375ac9fb4e946ef4",
+  "rulesets": ["p/javascript", "p/typescript", "p/nodejsscan", "p/secrets"],
+  "apps": [
+    {
+      "name": "nodegoat",
+      "upstream": "https://github.com/OWASP/NodeGoat",
+      "license": "Apache-2.0",
+      "corpus_commit": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "target": "bench/.cache/nodegoat",
+      "truth": "bench/corpus/nodegoat/truth.json",
+      "inventory_truncated": null,
+      "counts": {
+        "truth": 12,
+        "vulnerable": 8,
+        "safe": 4,
+        "detections": 25,
+        "unmatched": 18
+      },
+      "overall": {
+        "class": "overall",
+        "tp": 2,
+        "fp": 0,
+        "fn": 6,
+        "tn": 4,
+        "recall": 0.25,
+        "precision": 1,
+        "tpr": 0.25,
+        "fpr": 0,
+        "score": 0.25
+      },
+      "classes": [
+        {
+          "class": "authz_idor",
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "tn": 2,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "injection",
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "tn": 1,
+          "recall": 0.5,
+          "precision": 1,
+          "tpr": 0.5,
+          "fpr": 0,
+          "score": 0.5
+        },
+        {
+          "class": "secrets",
+          "tp": 0,
+          "fp": 0,
+          "fn": 3,
+          "tn": 1,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "ssrf",
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "recall": 1,
+          "precision": 1,
+          "tpr": 1,
+          "fpr": null,
+          "score": null
+        }
+      ],
+      "entries": [
+        {
+          "id": "nodegoat-admin-middleware",
+          "class": "authz_idor",
+          "cwe": "CWE-862",
+          "file": "app/routes/session.js",
+          "start_line": 25,
+          "end_line": 28,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "nodegoat-allocations-by-id",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "app/data/allocations-dao.js",
+          "start_line": 81,
+          "end_line": 83,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "nodegoat-allocations-idor",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "app/routes/allocations.js",
+          "start_line": 16,
+          "end_line": 23,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "nodegoat-allocations-where",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "app/data/allocations-dao.js",
+          "start_line": 77,
+          "end_line": 79,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "nodegoat-benefits-missing-authz",
+          "class": "authz_idor",
+          "cwe": "CWE-862",
+          "file": "app/routes/index.js",
+          "start_line": 55,
+          "end_line": 56,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "nodegoat-contributions-eval",
+          "class": "injection",
+          "cwe": "CWE-94",
+          "file": "app/routes/contributions.js",
+          "start_line": 32,
+          "end_line": 34,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "nodegoat-contributions-session-user",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "app/routes/contributions.js",
+          "start_line": 13,
+          "end_line": 17,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "nodegoat-cookie-secret",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "config/env/all.js",
+          "start_line": 8,
+          "end_line": 8,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "nodegoat-crypto-key",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "config/env/all.js",
+          "start_line": 9,
+          "end_line": 9,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "nodegoat-password-hash",
+          "class": "secrets",
+          "cwe": "CWE-312",
+          "file": "app/data/user-dao.js",
+          "start_line": 28,
+          "end_line": 29,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "nodegoat-plaintext-ssn",
+          "class": "secrets",
+          "cwe": "CWE-312",
+          "file": "app/data/profile-dao.js",
+          "start_line": 61,
+          "end_line": 63,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "nodegoat-research-fetch",
+          "class": "ssrf",
+          "cwe": "CWE-918",
+          "file": "app/routes/research.js",
+          "start_line": 14,
+          "end_line": 16,
+          "vulnerable": true,
+          "outcome": "tp"
+        }
+      ],
+      "unmatched": [
+        {
+          "class": "secrets",
+          "file": "app/routes/session.js",
+          "startLine": 60,
+          "endLine": 60
+        },
+        {
+          "class": "secrets",
+          "file": "app/routes/session.js",
+          "startLine": 61,
+          "endLine": 61
+        },
+        {
+          "class": "secrets",
+          "file": "app/routes/session.js",
+          "startLine": 160,
+          "endLine": 160
+        },
+        {
+          "class": "secrets",
+          "file": "app/routes/session.js",
+          "startLine": 172,
+          "endLine": 173
+        },
+        {
+          "class": "secrets",
+          "file": "app/routes/session.js",
+          "startLine": 213,
+          "endLine": 213
+        },
+        {
+          "class": "secrets",
+          "file": "artifacts/cert/server.key",
+          "startLine": 1,
+          "endLine": 2
+        },
+        {
+          "class": "secrets",
+          "file": "artifacts/db-reset.js",
+          "startLine": 19,
+          "endLine": 19
+        },
+        {
+          "class": "secrets",
+          "file": "artifacts/db-reset.js",
+          "startLine": 28,
+          "endLine": 28
+        },
+        {
+          "class": "secrets",
+          "file": "artifacts/db-reset.js",
+          "startLine": 36,
+          "endLine": 36
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        },
+        {
+          "class": "secrets",
+          "file": "server.js",
+          "startLine": 78,
+          "endLine": 102
+        }
+      ]
+    },
+    {
+      "name": "dvna",
+      "upstream": "https://github.com/appsecco/dvna",
+      "license": "MIT",
+      "corpus_commit": "9ba473add536f66ac9007966acb2a775dd31277a",
+      "target": "bench/.cache/dvna",
+      "truth": "bench/corpus/dvna/truth.json",
+      "inventory_truncated": null,
+      "counts": {
+        "truth": 10,
+        "vulnerable": 7,
+        "safe": 3,
+        "detections": 11,
+        "unmatched": 0
+      },
+      "overall": {
+        "class": "overall",
+        "tp": 2,
+        "fp": 0,
+        "fn": 5,
+        "tn": 3,
+        "recall": 0.2857142857142857,
+        "precision": 1,
+        "tpr": 0.2857142857142857,
+        "fpr": 0,
+        "score": 0.2857142857142857
+      },
+      "classes": [
+        {
+          "class": "authz_idor",
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "tn": 1,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "injection",
+          "tp": 1,
+          "fp": 0,
+          "fn": 2,
+          "tn": 1,
+          "recall": 0.3333333333333333,
+          "precision": 1,
+          "tpr": 0.3333333333333333,
+          "fpr": 0,
+          "score": 0.3333333333333333
+        },
+        {
+          "class": "secrets",
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "tn": 1,
+          "recall": 0.5,
+          "precision": 1,
+          "tpr": 0.5,
+          "fpr": 0,
+          "score": 0.5
+        },
+        {
+          "class": "ssrf",
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0,
+          "recall": null,
+          "precision": null,
+          "tpr": null,
+          "fpr": null,
+          "score": null
+        }
+      ],
+      "entries": [
+        {
+          "id": "dvna-calc-eval",
+          "class": "injection",
+          "cwe": "CWE-94",
+          "file": "core/appHandler.js",
+          "start_line": 195,
+          "end_line": 197,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "dvna-db-password-env",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "config/db.js",
+          "start_line": 2,
+          "end_line": 3,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "dvna-ping-exec",
+          "class": "injection",
+          "cwe": "CWE-78",
+          "file": "core/appHandler.js",
+          "start_line": 39,
+          "end_line": 39,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "dvna-product-search-like",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "core/appHandler.js",
+          "start_line": 58,
+          "end_line": 64,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "dvna-sequelize-query-log",
+          "class": "secrets",
+          "cwe": "CWE-532",
+          "file": "models/index.js",
+          "start_line": 12,
+          "end_line": 15,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "dvna-session-secret",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "server.js",
+          "start_line": 23,
+          "end_line": 28,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "dvna-user-edit-idor",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "core/appHandler.js",
+          "start_line": 144,
+          "end_line": 149,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "dvna-user-edit-session",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "core/appHandler.js",
+          "start_line": 136,
+          "end_line": 141,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "dvna-user-search-sql",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "core/appHandler.js",
+          "start_line": 10,
+          "end_line": 12,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "dvna-users-api-authz",
+          "class": "authz_idor",
+          "cwe": "CWE-862",
+          "file": "routes/app.js",
+          "start_line": 42,
+          "end_line": 42,
+          "vulnerable": true,
+          "outcome": "fn"
+        }
+      ],
+      "unmatched": []
+    },
+    {
+      "name": "juice-shop",
+      "upstream": "https://github.com/juice-shop/juice-shop",
+      "license": "MIT",
+      "corpus_commit": "f189f521266f42c6bd05884468292000cee852ed",
+      "target": "bench/.cache/juice-shop",
+      "truth": "bench/corpus/juice-shop/truth.json",
+      "inventory_truncated": null,
+      "counts": {
+        "truth": 21,
+        "vulnerable": 15,
+        "safe": 6,
+        "detections": 38,
+        "unmatched": 30
+      },
+      "overall": {
+        "class": "overall",
+        "tp": 6,
+        "fp": 1,
+        "fn": 9,
+        "tn": 5,
+        "recall": 0.4,
+        "precision": 0.8571428571428571,
+        "tpr": 0.4,
+        "fpr": 0.16666666666666666,
+        "score": 0.23333333333333336
+      },
+      "classes": [
+        {
+          "class": "authz_idor",
+          "tp": 0,
+          "fp": 0,
+          "fn": 5,
+          "tn": 2,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        },
+        {
+          "class": "injection",
+          "tp": 5,
+          "fp": 1,
+          "fn": 1,
+          "tn": 1,
+          "recall": 0.8333333333333334,
+          "precision": 0.8333333333333334,
+          "tpr": 0.8333333333333334,
+          "fpr": 0.5,
+          "score": 0.33333333333333337
+        },
+        {
+          "class": "secrets",
+          "tp": 1,
+          "fp": 0,
+          "fn": 2,
+          "tn": 1,
+          "recall": 0.3333333333333333,
+          "precision": 1,
+          "tpr": 0.3333333333333333,
+          "fpr": 0,
+          "score": 0.3333333333333333
+        },
+        {
+          "class": "ssrf",
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "tn": 1,
+          "recall": 0,
+          "precision": null,
+          "tpr": 0,
+          "fpr": 0,
+          "score": 0
+        }
+      ],
+      "entries": [
+        {
+          "id": "juice-basket-bound-query",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "routes/basket.ts",
+          "start_line": 19,
+          "end_line": 19,
+          "vulnerable": false,
+          "outcome": "fp"
+        },
+        {
+          "id": "juice-basket-idor",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/basket.ts",
+          "start_line": 18,
+          "end_line": 32,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-basket-item-idor",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/basketItems.ts",
+          "start_line": 36,
+          "end_line": 49,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-chat-bound-like",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "routes/chat.ts",
+          "start_line": 123,
+          "end_line": 128,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "juice-forged-feedback",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/verify.ts",
+          "start_line": 30,
+          "end_line": 36,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-infra-terraform-private-key",
+          "class": "secrets",
+          "cwe": "CWE-321",
+          "file": "infrastructure/terraform/networking.tf",
+          "start_line": 171,
+          "end_line": 171,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-llm-key-from-env",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "routes/chat.ts",
+          "start_line": 110,
+          "end_line": 110,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "juice-login-sql",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "routes/login.ts",
+          "start_line": 34,
+          "end_line": 34,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "juice-orders-nosql-where",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "routes/trackOrder.ts",
+          "start_line": 18,
+          "end_line": 18,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "juice-product-delete-denied",
+          "class": "authz_idor",
+          "cwe": "CWE-862",
+          "file": "server.ts",
+          "start_line": 399,
+          "end_line": 399,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "juice-product-put-authz",
+          "class": "authz_idor",
+          "cwe": "CWE-862",
+          "file": "server.ts",
+          "start_line": 398,
+          "end_line": 398,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-profile-eval",
+          "class": "injection",
+          "cwe": "CWE-94",
+          "file": "routes/userProfile.ts",
+          "start_line": 57,
+          "end_line": 65,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "juice-profile-image-fetch",
+          "class": "ssrf",
+          "cwe": "CWE-918",
+          "file": "routes/profileImageUrlUpload.ts",
+          "start_line": 18,
+          "end_line": 24,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-profile-session-user",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/updateUserProfile.ts",
+          "start_line": 17,
+          "end_line": 25,
+          "vulnerable": false,
+          "outcome": "tn"
+        },
+        {
+          "id": "juice-review-idor",
+          "class": "authz_idor",
+          "cwe": "CWE-639",
+          "file": "routes/updateProductReviews.ts",
+          "start_line": 16,
+          "end_line": 20,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-reviews-nosql-update",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "routes/updateProductReviews.ts",
+          "start_line": 17,
+          "end_line": 20,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-reviews-nosql-where",
+          "class": "injection",
+          "cwe": "CWE-943",
+          "file": "routes/showProductReviews.ts",
+          "start_line": 36,
+          "end_line": 36,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "juice-search-sql",
+          "class": "injection",
+          "cwe": "CWE-89",
+          "file": "routes/search.ts",
+          "start_line": 23,
+          "end_line": 23,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "juice-terraform-private-key",
+          "class": "secrets",
+          "cwe": "CWE-321",
+          "file": "terraform/networking.tf",
+          "start_line": 171,
+          "end_line": 171,
+          "vulnerable": true,
+          "outcome": "fn"
+        },
+        {
+          "id": "juice-testing-credentials",
+          "class": "secrets",
+          "cwe": "CWE-798",
+          "file": "frontend/src/app/login/login.component.ts",
+          "start_line": 68,
+          "end_line": 69,
+          "vulnerable": true,
+          "outcome": "tp"
+        },
+        {
+          "id": "juice-webhook-env-url",
+          "class": "ssrf",
+          "cwe": "CWE-918",
+          "file": "lib/webhook.ts",
+          "start_line": 14,
+          "end_line": 18,
+          "vulnerable": false,
+          "outcome": "tn"
+        }
+      ],
+      "unmatched": [
+        {
+          "class": "injection",
+          "file": "data/static/codefixes/dbSchemaChallenge_1.ts",
+          "startLine": 5,
+          "endLine": 5
+        },
+        {
+          "class": "injection",
+          "file": "data/static/codefixes/dbSchemaChallenge_3.ts",
+          "startLine": 11,
+          "endLine": 11
+        },
+        {
+          "class": "injection",
+          "file": "data/static/codefixes/unionSqlInjectionChallenge_1.ts",
+          "startLine": 6,
+          "endLine": 6
+        },
+        {
+          "class": "injection",
+          "file": "data/static/codefixes/unionSqlInjectionChallenge_3.ts",
+          "startLine": 10,
+          "endLine": 10
+        },
+        {
+          "class": "injection",
+          "file": "routes/address.ts",
+          "startLine": 18,
+          "endLine": 18
+        },
+        {
+          "class": "injection",
+          "file": "routes/basketItems.ts",
+          "startLine": 68,
+          "endLine": 68
+        },
+        {
+          "class": "injection",
+          "file": "routes/captcha.ts",
+          "startLine": 37,
+          "endLine": 37
+        },
+        {
+          "class": "injection",
+          "file": "routes/dataErasure.ts",
+          "startLine": 34,
+          "endLine": 39
+        },
+        {
+          "class": "injection",
+          "file": "routes/delivery.ts",
+          "startLine": 34,
+          "endLine": 34
+        },
+        {
+          "class": "injection",
+          "file": "routes/deluxe.ts",
+          "startLine": 19,
+          "endLine": 19
+        },
+        {
+          "class": "injection",
+          "file": "routes/deluxe.ts",
+          "startLine": 25,
+          "endLine": 25
+        },
+        {
+          "class": "injection",
+          "file": "routes/deluxe.ts",
+          "startLine": 35,
+          "endLine": 35
+        },
+        {
+          "class": "injection",
+          "file": "routes/likeProductReviews.ts",
+          "startLine": 25,
+          "endLine": 25
+        },
+        {
+          "class": "injection",
+          "file": "routes/likeProductReviews.ts",
+          "startLine": 43,
+          "endLine": 43
+        },
+        {
+          "class": "injection",
+          "file": "routes/order.ts",
+          "startLine": 35,
+          "endLine": 35
+        },
+        {
+          "class": "injection",
+          "file": "routes/order.ts",
+          "startLine": 125,
+          "endLine": 125
+        },
+        {
+          "class": "injection",
+          "file": "routes/order.ts",
+          "startLine": 148,
+          "endLine": 148
+        },
+        {
+          "class": "injection",
+          "file": "routes/payment.ts",
+          "startLine": 41,
+          "endLine": 41
+        },
+        {
+          "class": "injection",
+          "file": "routes/wallet.ts",
+          "startLine": 12,
+          "endLine": 12
+        },
+        {
+          "class": "injection",
+          "file": "routes/wallet.ts",
+          "startLine": 24,
+          "endLine": 24
+        },
+        {
+          "class": "secrets",
+          "file": "data/datacreator.ts",
+          "startLine": 350,
+          "endLine": 350
+        },
+        {
+          "class": "secrets",
+          "file": "data/datacreator.ts",
+          "startLine": 354,
+          "endLine": 354
+        },
+        {
+          "class": "secrets",
+          "file": "frontend/src/app/navbar/navbar.component.spec.ts",
+          "startLine": 376,
+          "endLine": 376
+        },
+        {
+          "class": "secrets",
+          "file": "frontend/src/app/navbar/navbar.component.spec.ts",
+          "startLine": 588,
+          "endLine": 588
+        },
+        {
+          "class": "secrets",
+          "file": "frontend/src/app/purchase-basket/purchase-basket.component.ts",
+          "startLine": 60,
+          "endLine": 60
+        },
+        {
+          "class": "secrets",
+          "file": "frontend/src/app/purchase-basket/purchase-basket.component.ts",
+          "startLine": 70,
+          "endLine": 70
+        },
+        {
+          "class": "secrets",
+          "file": "frontend/src/app/sidenav/sidenav.component.spec.ts",
+          "startLine": 236,
+          "endLine": 236
+        },
+        {
+          "class": "secrets",
+          "file": "frontend/src/app/sidenav/sidenav.component.spec.ts",
+          "startLine": 250,
+          "endLine": 250
+        },
+        {
+          "class": "secrets",
+          "file": "frontend/src/app/sidenav/sidenav.component.spec.ts",
+          "startLine": 382,
+          "endLine": 382
+        },
+        {
+          "class": "secrets",
+          "file": "lib/insecurity.ts",
+          "startLine": 54,
+          "endLine": 54
+        }
+      ]
+    }
+  ]
+}

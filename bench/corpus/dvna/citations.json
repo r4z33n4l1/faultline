@@ -1,0 +1,55 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "dvna-user-search-sql",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a1-injection.md",
+      "note": "A1 documents SQL injection in user search. Verified at core/appHandler.js lines 10-12: login is concatenated into the query string passed to sequelize.query."
+    },
+    {
+      "id": "dvna-ping-exec",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a1-injection.md",
+      "note": "A1 documents command injection in the connectivity test. Verified at core/appHandler.js line 39: the address is concatenated into child_process.exec."
+    },
+    {
+      "id": "dvna-calc-eval",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a9-using-components-with-known-vulnerability.md",
+      "note": "A9 documents user input reaching mathjs.eval on the calculator, which is code injection. Verified at core/appHandler.js lines 195-197. The package-version framing of A9 is excluded separately and is not a scored site."
+    },
+    {
+      "id": "dvna-product-search-like",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a1-injection.md",
+      "note": "A1's recommended fix is a Sequelize finder instead of a concatenated query. productSearch already binds the name through Op.like at core/appHandler.js lines 58-64."
+    },
+    {
+      "id": "dvna-users-api-authz",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a5-broken-access-control.md",
+      "note": "A5 says the users API is behind authentication but not an admin check. Verified at routes/app.js line 42."
+    },
+    {
+      "id": "dvna-user-edit-idor",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a5-broken-access-control.md",
+      "note": "A5 says userEditSubmit loads the user by the caller-supplied id. Verified at core/appHandler.js lines 144-149."
+    },
+    {
+      "id": "dvna-user-edit-session",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a5-broken-access-control.md",
+      "note": "The A5 fix is to use the session user. The GET handler userEdit already renders req.user at core/appHandler.js lines 136-141 and does not take an id from the query."
+    },
+    {
+      "id": "dvna-session-secret",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a2-broken-auth.md",
+      "note": "A2 documents the hardcoded express-session secret in server.js. Verified at lines 23-28. The value is the well-known sample literal, not a live credential."
+    },
+    {
+      "id": "dvna-sequelize-query-log",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a3-sensitive-data-exposure.md",
+      "note": "A3 documents Sequelize logging queries, including sensitive values, because logging is left at the default. Verified at models/index.js lines 12-15, which construct Sequelize without logging disabled."
+    },
+    {
+      "id": "dvna-db-password-env",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/config/db.js",
+      "note": "The database password is read from MYSQL_PASSWORD at config/db.js lines 2-3. That is the safe look-alike beside the hardcoded session secret."
+    }
+  ]
+}

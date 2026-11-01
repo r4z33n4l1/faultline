@@ -10,6 +10,7 @@ export default tseslint.config(
       "schema/**",
       "test/fixtures/**",
       "bench/seeded-app/**",
+      "bench/.cache/**",
     ],
   },
   eslint.configs.recommended,

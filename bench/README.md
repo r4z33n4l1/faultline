@@ -11,7 +11,7 @@ pnpm exec faultline bench bench/seeded-app
 pnpm exec faultline bench bench/seeded-app --stage findings --out ./faultline-bench
 ```
 
-`--stage` defaults to `candidates`. That stage scores `candidates.json` from the scan bench just ran. `--stage findings` scores `findings.json` from that same scan. Findings stay empty until a validator promotes candidates, so this stage reports no detections today. Bench does not promote candidates and does not include the validator.
+`--stage` defaults to `candidates`. That stage scores `candidates.json` from the scan bench just ran and skips validation. `--stage findings` scores `findings.json` from that same scan and runs the validator. Bench does not promote candidates except through that findings-stage validation.
 
 `--provider` and `--model` are the same flags as `scan`. With no provider, hunters emit the heuristic pre-pass and no model is called. `--provider fake` does not use the network. It also does not emit those heuristic candidates, except filename-only env candidates, which this corpus does not use.
 
@@ -22,6 +22,8 @@ The command exits 0 after it writes a score, including a low score. It exits 1 w
 ## Corpus
 
 `bench/seeded-app` is Parcel Desk, a small Express TypeScript app. It is scanned as text. Nothing starts it, and it is not one of the hunter fixtures under `test/fixtures`.
+
+`bench/corpus` labels three public training apps: OWASP NodeGoat, DVNA, and OWASP Juice Shop. Their source is not in this repo. `faultline bench --corpus <name>` shallow-fetches the pinned sha into `bench/.cache/` and scores `bench/corpus/<name>/truth.json`. `pnpm bench:fetch` fetches every pin. `--baseline semgrep` scores Semgrep OSS with the same harness. `--sarif` imports a SARIF file and does not run the tool that produced it. The method, the gaps, and the tools that are not run are in [corpus/README.md](corpus/README.md). Committed scores are in [results/README.md](results/README.md).
 
 The truth file has 17 vulnerable sites and 17 look-alike safe sites, across authz/IDOR, injection, secrets, and SSRF. Safe sites include an ownership or tenant check, a parameterized query, an allowlisted column or expression, `execFile`, a hostname allowlist, a host compared to a constant, a fixed base URL with `encodeURIComponent`, a fetch of a constant URL, placeholder secrets, and a documented example access key id assembled at runtime.
 
@@ -104,10 +106,13 @@ CI runs the scoring function on a synthetic truth set and a synthetic detection 
 
 CI also checks that `bench/seeded-app/truth.json` parses and that every label's lines exist in its file. That is a fixture check, not a detection rate.
 
+CI checks the public corpus manifest, citations, and excluded lists without checking out those apps. It does not run Semgrep and it does not gate on a corpus score.
+
 ## Deferred
 
 - The disproof validator, and any promotion from candidates to findings
 - Scoring `faultline pr` instead of a full-tree scan
 - Interprocedural taint, a JavaScript parser, or executing the app
-- An upstream OWASP Benchmark or CVE corpus
 - A leaderboard, or a CI gate on recall or score
+- Running Cloudflare security-audit, Strix, or Vercel Agent (SARIF import only)
+- Raising the inventory cap so a Juice Shop scan is not truncated

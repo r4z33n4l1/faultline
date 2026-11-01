@@ -1,0 +1,65 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "dvna-password-reset",
+      "class": "broken_authentication",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a2-broken-auth.md",
+      "note": "Predictable password-reset token. Broken authentication, not authorization or IDOR. Not counted."
+    },
+    {
+      "id": "dvna-password-hash-api",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a3-sensitive-data-exposure.md",
+      "note": "The users API returns the stored password hash. That is excess data exposure, not a hardcoded or logged secret in source. Not counted."
+    },
+    {
+      "id": "dvna-xxe",
+      "class": "xxe",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a4-xxe.md",
+      "note": "XML external entities in bulk product import. Not counted, including as SSRF."
+    },
+    {
+      "id": "dvna-stack-trace",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a6-securty-misconfig.md",
+      "note": "Calculator error disclosure. The eval call itself is scored as injection. The stack-trace class is not counted."
+    },
+    {
+      "id": "dvna-xss",
+      "class": "xss",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a7-xss.md",
+      "note": "Reflected and stored XSS. Not counted."
+    },
+    {
+      "id": "dvna-deserialization",
+      "class": "deserialization",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a8-insecure-deserialization.md",
+      "note": "node-serialize on the legacy bulk import. Deserialization is out of scope. Not counted."
+    },
+    {
+      "id": "dvna-vulnerable-component",
+      "class": "vulnerable_component",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a9-using-components-with-known-vulnerability.md",
+      "note": "The mathjs package version is a dependency issue. Not counted as its own site. The eval call is scored under injection."
+    },
+    {
+      "id": "dvna-insufficient-logging",
+      "class": "insufficient_logging",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/a10-insufficient-logging.md",
+      "note": "Failure to log authentication events. Not a secret written to a log. Not counted."
+    },
+    {
+      "id": "dvna-csrf",
+      "class": "csrf",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/ax-csrf.md",
+      "note": "CSRF on product and user edits. Not counted."
+    },
+    {
+      "id": "dvna-open-redirect",
+      "class": "open_redirect",
+      "source": "https://github.com/appsecco/dvna/blob/9ba473add536f66ac9007966acb2a775dd31277a/docs/solution/ax-unvalidated-redirects-and-forwards.md",
+      "note": "res.redirect of a caller-supplied URL. Open redirect, not a server-side fetch. Not counted as SSRF."
+    }
+  ]
+}

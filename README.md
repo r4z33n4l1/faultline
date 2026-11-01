@@ -38,6 +38,9 @@ pnpm build
 pnpm exec faultline validate path/to/findings.json
 pnpm exec faultline scan .
 pnpm exec faultline bench bench/seeded-app
+pnpm bench:fetch
+pnpm exec faultline bench --corpus dvna
+pnpm exec faultline bench --corpus dvna --baseline semgrep
 pnpm exec faultline pr path/to/change.diff --repo .
 gh pr diff https://github.com/org/repo/pull/1 | pnpm exec faultline pr -
 ```
@@ -140,7 +143,7 @@ Recon still covers the repository. `architecture.md` and `report.md` say the run
 
 ## Bench
 
-`faultline bench <dir>` scans that directory and scores `candidates.json` against `<dir>/truth.json`. `--stage findings` scores `findings.json` instead. That stage runs the validator; the default candidates stage skips validation. The method, the seeded app, and why a table is not a product result are in [bench/README.md](bench/README.md).
+`faultline bench <dir>` scans that directory and scores `candidates.json` against `<dir>/truth.json`. `--stage findings` scores `findings.json` instead. That stage runs the validator; the default candidates stage skips validation. `faultline bench --corpus <name>` scores a pinned public training app fetched into a gitignored cache. `--baseline semgrep` scores Semgrep OSS the same way. The method, the seeded app, the public corpus, and why a table is not a product result are in [bench/README.md](bench/README.md).
 
 ## Develop
 

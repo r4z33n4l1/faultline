@@ -1,0 +1,593 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "juice-passwordHashLeakChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge passwordHashLeakChallenge (Sensitive Data Exposure): Password Hash Leak. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-restfulXssChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge restfulXssChallenge (XSS): API-only XSS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-accessLogDisclosureChallenge",
+      "class": "observability_failures",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge accessLogDisclosureChallenge (Observability Failures): Access Log. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-registerAdminChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge registerAdminChallenge (Improper Input Validation): Admin Registration. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-adminSectionChallenge",
+      "class": "broken_access_control",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge adminSectionChallenge (Broken Access Control): Admin Section. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-fileWriteChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge fileWriteChallenge (Vulnerable Components): Arbitrary File Write. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-resetPasswordBjoernOwaspChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge resetPasswordBjoernOwaspChallenge (Broken Authentication): Bjoern's Favorite Pet. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-tokenSaleChallenge",
+      "class": "security_through_obscurity",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge tokenSaleChallenge (Security through Obscurity): Blockchain Hype. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-nftUnlockChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge nftUnlockChallenge (Sensitive Data Exposure): NFT Takeover. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-nftMintChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge nftMintChallenge (Improper Input Validation): Mint the Honey Pot. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-web3WalletChallenge",
+      "class": "miscellaneous",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge web3WalletChallenge (Miscellaneous): Wallet Depletion. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-web3SandboxChallenge",
+      "class": "broken_access_control",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge web3SandboxChallenge (Broken Access Control): Web3 Sandbox. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-rceChallenge",
+      "class": "insecure_deserialization",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge rceChallenge (Insecure Deserialization): Blocked RCE DoS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-captchaBypassChallenge",
+      "class": "broken_anti_automation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge captchaBypassChallenge (Broken Anti Automation): CAPTCHA Bypass. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-changePasswordBenderChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge changePasswordBenderChallenge (Broken Authentication): Change Bender's Password. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-usernameXssChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge usernameXssChallenge (XSS): CSP Bypass. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-persistedXssUserChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge persistedXssUserChallenge (XSS): Client-side XSS Protection. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-directoryListingChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge directoryListingChallenge (Sensitive Data Exposure): Confidential Document. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-localXssChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge localXssChallenge (XSS): DOM XSS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-deprecatedInterfaceChallenge",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge deprecatedInterfaceChallenge (Security Misconfiguration): Deprecated Interface. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-easterEggLevelOneChallenge",
+      "class": "broken_access_control",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge easterEggLevelOneChallenge (Broken Access Control): Easter Egg. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-emailLeakChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge emailLeakChallenge (Sensitive Data Exposure): Email Leak. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-emptyUserRegistration",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge emptyUserRegistration (Improper Input Validation): Empty User Registration. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-errorHandlingChallenge",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge errorHandlingChallenge (Security Misconfiguration): Error Handling. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-manipulateClockChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge manipulateClockChallenge (Improper Input Validation): Expired Coupon. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-extraLanguageChallenge",
+      "class": "broken_anti_automation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge extraLanguageChallenge (Broken Anti Automation): Extra Language. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-feedbackChallenge",
+      "class": "broken_access_control",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge feedbackChallenge (Broken Access Control): Five-Star Feedback. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-forgedCouponChallenge",
+      "class": "cryptographic_issues",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge forgedCouponChallenge (Cryptographic Issues): Forged Coupon. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-jwtForgedChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge jwtForgedChallenge (Vulnerable Components): Forged Signed JWT. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-forgottenDevBackupChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge forgottenDevBackupChallenge (Sensitive Data Exposure): Forgotten Developer Backup. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-forgottenBackupChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge forgottenBackupChallenge (Sensitive Data Exposure): Forgotten Sales Backup. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-typosquattingAngularChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge typosquattingAngularChallenge (Vulnerable Components): Frontend Typosquatting. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-ghostLoginChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge ghostLoginChallenge (Broken Authentication): GDPR Data Erasure. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-dataExportChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge dataExportChallenge (Sensitive Data Exposure): GDPR Data Theft. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-httpHeaderXssChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge httpHeaderXssChallenge (XSS): HTTP-Header XSS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-continueCodeChallenge",
+      "class": "cryptographic_issues",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge continueCodeChallenge (Cryptographic Issues): Imaginary Challenge. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-dlpPasswordSprayingChallenge",
+      "class": "observability_failures",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge dlpPasswordSprayingChallenge (Observability Failures): Leaked Access Logs. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-dlpPastebinDataLeakChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge dlpPastebinDataLeakChallenge (Sensitive Data Exposure): Leaked Unsafe Product. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-typosquattingNpmChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge typosquattingNpmChallenge (Vulnerable Components): Legacy Typosquatting. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-loginAmyChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge loginAmyChallenge (Sensitive Data Exposure): Login Amy. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-oauthUserPasswordChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge oauthUserPasswordChallenge (Broken Authentication): Login Bjoern. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-loginRapperChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge loginRapperChallenge (Sensitive Data Exposure): Login MC SafeSearch. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-loginSupportChallenge",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge loginSupportChallenge (Security Misconfiguration): Login Support Team. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-misplacedSignatureFileChallenge",
+      "class": "observability_failures",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge misplacedSignatureFileChallenge (Observability Failures): Misplaced Signature File. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-timingAttackChallenge",
+      "class": "broken_anti_automation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge timingAttackChallenge (Broken Anti Automation): Multiple Likes. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-easterEggLevelTwoChallenge",
+      "class": "cryptographic_issues",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge easterEggLevelTwoChallenge (Cryptographic Issues): Nested Easter Egg. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-redirectCryptoCurrencyChallenge",
+      "class": "unvalidated_redirects",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge redirectCryptoCurrencyChallenge (Unvalidated Redirects): Outdated Allowlist. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-weakPasswordChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge weakPasswordChallenge (Broken Authentication): Password Strength. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-negativeOrderChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge negativeOrderChallenge (Improper Input Validation): Payback Time. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-premiumPaywallChallenge",
+      "class": "cryptographic_issues",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge premiumPaywallChallenge (Cryptographic Issues): Premium Paywall. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-privacyPolicyChallenge",
+      "class": "miscellaneous",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge privacyPolicyChallenge (Miscellaneous): Privacy Policy. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-privacyPolicyProofChallenge",
+      "class": "security_through_obscurity",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge privacyPolicyProofChallenge (Security through Obscurity): Privacy Policy Inspection. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-reflectedXssChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge reflectedXssChallenge (XSS): Reflected XSS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-passwordRepeatChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge passwordRepeatChallenge (Improper Input Validation): Repetitive Registration. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-resetPasswordBenderChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge resetPasswordBenderChallenge (Broken Authentication): Reset Bender's Password. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-resetPasswordBjoernChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge resetPasswordBjoernChallenge (Broken Authentication): Reset Bjoern's Password. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-resetPasswordJimChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge resetPasswordJimChallenge (Broken Authentication): Reset Jim's Password. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-resetPasswordMortyChallenge",
+      "class": "broken_anti_automation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge resetPasswordMortyChallenge (Broken Anti Automation): Reset Morty's Password. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-retrieveBlueprintChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge retrieveBlueprintChallenge (Sensitive Data Exposure): Retrieve Blueprint. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-scoreBoardChallenge",
+      "class": "miscellaneous",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge scoreBoardChallenge (Miscellaneous): Score Board. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-securityPolicyChallenge",
+      "class": "miscellaneous",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge securityPolicyChallenge (Miscellaneous): Security Policy. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-persistedXssFeedbackChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge persistedXssFeedbackChallenge (XSS): Server-side XSS Protection. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-hiddenImageChallenge",
+      "class": "security_through_obscurity",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge hiddenImageChallenge (Security through Obscurity): Steganography. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-rceOccupyChallenge",
+      "class": "insecure_deserialization",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge rceOccupyChallenge (Insecure Deserialization): Successful RCE DoS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-supplyChainAttackChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge supplyChainAttackChallenge (Vulnerable Components): Supply Chain Attack. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-twoFactorAuthUnsafeSecretStorageChallenge",
+      "class": "broken_authentication",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge twoFactorAuthUnsafeSecretStorageChallenge (Broken Authentication): Two Factor Authentication. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-jwtUnsignedChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge jwtUnsignedChallenge (Vulnerable Components): Unsigned JWT. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-uploadSizeChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge uploadSizeChallenge (Improper Input Validation): Upload Size. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-uploadTypeChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge uploadTypeChallenge (Improper Input Validation): Upload Type. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-videoXssChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge videoXssChallenge (XSS): Video XSS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-knownVulnerableComponentChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge knownVulnerableComponentChallenge (Vulnerable Components): Vulnerable Library. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-weirdCryptoChallenge",
+      "class": "cryptographic_issues",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge weirdCryptoChallenge (Cryptographic Issues): Weird Crypto. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-redirectChallenge",
+      "class": "unvalidated_redirects",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge redirectChallenge (Unvalidated Redirects): Allowlist Bypass. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-xxeFileDisclosureChallenge",
+      "class": "xxe",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge xxeFileDisclosureChallenge (XXE): XXE Data Access. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-xxeDosChallenge",
+      "class": "xxe",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge xxeDosChallenge (XXE): XXE DoS. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-yamlBombChallenge",
+      "class": "insecure_deserialization",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge yamlBombChallenge (Insecure Deserialization): Memory Bomb. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-zeroStarsChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge zeroStarsChallenge (Improper Input Validation): Zero Stars. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-missingEncodingChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge missingEncodingChallenge (Improper Input Validation): Missing Encoding. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-svgInjectionChallenge",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge svgInjectionChallenge (Security Misconfiguration): Cross-Site Imaging. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-exposedMetricsChallenge",
+      "class": "observability_failures",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge exposedMetricsChallenge (Observability Failures): Exposed Metrics. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-misplacedIacFiles",
+      "class": "security_misconfiguration",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge misplacedIacFiles (Security Misconfiguration): Misplaced IaC Files. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-freeDeluxeChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge freeDeluxeChallenge (Improper Input Validation): Deluxe Fraud. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-csrfChallenge",
+      "class": "broken_access_control",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge csrfChallenge (Broken Access Control): CSRF. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-xssBonusChallenge",
+      "class": "xss",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge xssBonusChallenge (XSS): Bonus Payload. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-resetPasswordUvoginChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge resetPasswordUvoginChallenge (Sensitive Data Exposure): Reset Uvogin's Password. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-geoStalkingMetaChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge geoStalkingMetaChallenge (Sensitive Data Exposure): Meta Geo Stalking. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-geoStalkingVisualChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge geoStalkingVisualChallenge (Sensitive Data Exposure): Visual Geo Stalking. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-nullByteChallenge",
+      "class": "improper_input_validation",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge nullByteChallenge (Improper Input Validation): Poison Null Byte. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-lfrChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge lfrChallenge (Vulnerable Components): Local File Read. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-closeNotificationsChallenge",
+      "class": "miscellaneous",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge closeNotificationsChallenge (Miscellaneous): Mass Dispel. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-csafChallenge",
+      "class": "miscellaneous",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge csafChallenge (Miscellaneous): Security Advisory. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-leakedApiKeyChallenge",
+      "class": "sensitive_data_exposure",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge leakedApiKeyChallenge (Sensitive Data Exposure): Leaked API Key. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-chatbotPromptInjectionChallenge",
+      "class": "injection",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge chatbotPromptInjectionChallenge (Injection): Chatbot Prompt Injection. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-chatbotGreedyInjectionChallenge",
+      "class": "injection",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge chatbotGreedyInjectionChallenge (Injection): Greedy Chatbot Manipulation. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-aiDebuggingChallenge",
+      "class": "broken_access_control",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge aiDebuggingChallenge (Broken Access Control): AI Debugging. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-systemPromptExtractionChallenge",
+      "class": "injection",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge systemPromptExtractionChallenge (Injection): System Prompt Extraction. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-vulnerableDockerImageChallenge",
+      "class": "vulnerable_components",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "Challenge vulnerableDockerImageChallenge (Vulnerable Components): Vulnerable Infrastructure. Out of the four scored classes, or not a distinct verified sink. Not counted."
+    },
+    {
+      "id": "juice-rce-deserialization-note",
+      "class": "deserialization",
+      "source": "https://github.com/juice-shop/juice-shop/blob/f189f521266f42c6bd05884468292000cee852ed/data/static/challenges.yml",
+      "note": "rceChallenge and rceOccupyChallenge are Insecure Deserialization (vm evaluation of order data in routes/b2bOrder.ts). Deserialization is out of scope, so the sink is not scored as code injection."
+    }
+  ]
+}

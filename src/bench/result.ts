@@ -6,6 +6,13 @@ export const BENCH_SCHEMA_VERSION = "1";
 export const BENCH_STAGES = ["candidates", "findings"] as const;
 export type BenchStage = (typeof BENCH_STAGES)[number];
 
+/**
+ * Stages stored in a bench result. `scan` is an external static tool.
+ * Faultline's own `--stage` flag stays `candidates` or `findings`.
+ */
+export const RESULT_STAGES = ["candidates", "findings", "scan"] as const;
+export type ResultStage = (typeof RESULT_STAGES)[number];
+
 export const BENCH_DISCLAIMER =
   "This file measures one bench run. It is not a Faultline product result. Cite it only when provider, model, and commit are all recorded.";
 
@@ -13,7 +20,7 @@ const nonEmpty = z.string().min(1);
 const count = z.number().int().nonnegative();
 const rate = z.number().nullable();
 
-const confusionSchema = z.strictObject({
+export const confusionSchema = z.strictObject({
   class: nonEmpty,
   tp: count,
   fp: count,
@@ -26,7 +33,7 @@ const confusionSchema = z.strictObject({
   score: rate,
 });
 
-const scoredEntrySchema = z.strictObject({
+export const scoredEntrySchema = z.strictObject({
   id: nonEmpty,
   class: z.enum(TRUTH_CLASSES),
   cwe: z.string().regex(/^CWE-\d+$/),
@@ -37,7 +44,7 @@ const scoredEntrySchema = z.strictObject({
   outcome: z.enum(BENCH_OUTCOMES),
 });
 
-const unmatchedSchema = z.strictObject({
+export const unmatchedSchema = z.strictObject({
   class: nonEmpty,
   file: nonEmpty,
   startLine: z.number().int().min(1),
@@ -48,7 +55,7 @@ export const benchResultSchema = z.strictObject({
   schema_version: z.literal(BENCH_SCHEMA_VERSION),
   disclaimer: z.literal(BENCH_DISCLAIMER),
   citable: z.boolean(),
-  stage: z.enum(BENCH_STAGES),
+  stage: z.enum(RESULT_STAGES),
   target: nonEmpty,
   truth: nonEmpty,
   tool: z.strictObject({

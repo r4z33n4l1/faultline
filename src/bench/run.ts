@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { executeScan } from "../recon/run.js";
 import { candidatesFileSchema, type CandidatesFile } from "../schema/candidate.js";
@@ -16,6 +16,7 @@ import {
   benchResultSchema,
   type BenchResult,
   type BenchStage,
+  type ResultStage,
 } from "./result.js";
 import { normalizeBenchPath, scoreBench, type DetectionSpan } from "./score.js";
 
@@ -104,7 +105,7 @@ async function readJson(filePath: string): Promise<unknown> {
   }
 }
 
-async function loadTruth(truthPath: string, root: string): Promise<TruthFile> {
+export async function loadTruthFile(truthPath: string, root: string): Promise<TruthFile> {
   const parsed = truthFileSchema.safeParse(await readJson(truthPath));
   if (!parsed.success) {
     throw new Error(formatZodIssues(parsed.error));
@@ -156,31 +157,42 @@ export function detectionsFromFindings(file: FindingsFile): DetectionSpan[] {
   }));
 }
 
-function buildResult(
-  request: BenchRequest,
+export interface BenchResultDraft {
+  target: string;
+  truthPath: string;
+  stage: ResultStage;
+  tool: { name: string; version: string };
+  runId: string;
+  startedAt: string;
+  provider: string | null;
+  model: string | null;
+  commit: string | null;
+}
+
+/** Site-level score for one tool run. Does not scan and does not promote candidates. */
+export function benchResultFromDetections(
+  draft: BenchResultDraft,
   truth: TruthFile,
-  stageFile: CandidatesFile | FindingsFile,
-  detections: DetectionSpan[],
-  commit: string | null,
+  detections: readonly DetectionSpan[],
 ): BenchResult {
   const entries: TruthEntry[] = truth.entries;
   const scored = scoreBench(entries, detections);
-  const provider = stageFile.run.provider ?? null;
-  const model = request.model;
+  const provider = draft.provider;
+  const model = draft.model;
   return benchResultSchema.parse({
     schema_version: "1",
     disclaimer: BENCH_DISCLAIMER,
-    citable: provider !== null && provider !== "fake" && model !== null && commit !== null,
-    stage: request.stage,
-    target: request.target,
-    truth: request.truthPath,
-    tool: { name: TOOL_NAME, version: TOOL_VERSION },
+    citable: provider !== null && provider !== "fake" && model !== null && draft.commit !== null,
+    stage: draft.stage,
+    target: draft.target,
+    truth: draft.truthPath,
+    tool: draft.tool,
     run: {
-      id: stageFile.run.id,
-      started_at: stageFile.run.started_at,
+      id: draft.runId,
+      started_at: draft.startedAt,
       provider,
       model,
-      commit,
+      commit: draft.commit,
     },
     counts: {
       truth: entries.length,
@@ -196,6 +208,16 @@ function buildResult(
   });
 }
 
+export async function writeBenchResult(outDir: string, result: BenchResult): Promise<void> {
+  await mkdir(outDir, { recursive: true });
+  await writeFile(
+    resolve(outDir, "bench-result.json"),
+    `${JSON.stringify(result, null, 2)}\n`,
+    "utf8",
+  );
+  await writeFile(resolve(outDir, "bench-result.md"), renderBenchMarkdown(result), "utf8");
+}
+
 export async function executeBench(request: BenchRequest): Promise<BenchResult> {
   const root = resolve(request.cwd, request.target);
   let rootInfo: Awaited<ReturnType<typeof stat>>;
@@ -209,7 +231,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
     throw new Error(`Target is not a directory: ${request.target}`);
   }
   const truthPath = resolve(request.cwd, request.truthPath);
-  const truth = await loadTruth(truthPath, root);
+  const truth = await loadTruthFile(truthPath, root);
   const scan: {
     target: string;
     cwd: string;
@@ -244,25 +266,40 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
     if (!parsed.success) {
       throw new Error(formatZodIssues(parsed.error));
     }
-    result = buildResult(
-      request,
+    result = benchResultFromDetections(
+      draftFromScan(request, parsed.data.run, commit),
       truth,
-      parsed.data,
       detectionsFromCandidates(parsed.data),
-      commit,
     );
   } else {
     const parsed = findingsFileSchema.safeParse(json);
     if (!parsed.success) {
       throw new Error(formatZodIssues(parsed.error));
     }
-    result = buildResult(request, truth, parsed.data, detectionsFromFindings(parsed.data), commit);
+    result = benchResultFromDetections(
+      draftFromScan(request, parsed.data.run, commit),
+      truth,
+      detectionsFromFindings(parsed.data),
+    );
   }
-  await writeFile(
-    resolve(request.outDir, "bench-result.json"),
-    `${JSON.stringify(result, null, 2)}\n`,
-    "utf8",
-  );
-  await writeFile(resolve(request.outDir, "bench-result.md"), renderBenchMarkdown(result), "utf8");
+  await writeBenchResult(request.outDir, result);
   return result;
+}
+
+function draftFromScan(
+  request: BenchRequest,
+  run: { id: string; started_at: string; provider?: string },
+  commit: string | null,
+): BenchResultDraft {
+  return {
+    target: request.target,
+    truthPath: request.truthPath,
+    stage: request.stage,
+    tool: { name: TOOL_NAME, version: TOOL_VERSION },
+    runId: run.id,
+    startedAt: run.started_at,
+    provider: run.provider ?? null,
+    model: request.model,
+    commit,
+  };
 }

@@ -1,0 +1,113 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "nodegoat-allocations-idor",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "app/routes/allocations.js",
+      "start_line": 16,
+      "end_line": 23,
+      "vulnerable": true
+    },
+    {
+      "id": "nodegoat-benefits-missing-authz",
+      "class": "authz_idor",
+      "cwe": "CWE-862",
+      "file": "app/routes/index.js",
+      "start_line": 55,
+      "end_line": 56,
+      "vulnerable": true
+    },
+    {
+      "id": "nodegoat-contributions-session-user",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "app/routes/contributions.js",
+      "start_line": 13,
+      "end_line": 17,
+      "vulnerable": false
+    },
+    {
+      "id": "nodegoat-admin-middleware",
+      "class": "authz_idor",
+      "cwe": "CWE-862",
+      "file": "app/routes/session.js",
+      "start_line": 25,
+      "end_line": 28,
+      "vulnerable": false
+    },
+    {
+      "id": "nodegoat-contributions-eval",
+      "class": "injection",
+      "cwe": "CWE-94",
+      "file": "app/routes/contributions.js",
+      "start_line": 32,
+      "end_line": 34,
+      "vulnerable": true
+    },
+    {
+      "id": "nodegoat-allocations-where",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "app/data/allocations-dao.js",
+      "start_line": 77,
+      "end_line": 79,
+      "vulnerable": true
+    },
+    {
+      "id": "nodegoat-allocations-by-id",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "app/data/allocations-dao.js",
+      "start_line": 81,
+      "end_line": 83,
+      "vulnerable": false
+    },
+    {
+      "id": "nodegoat-cookie-secret",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "config/env/all.js",
+      "start_line": 8,
+      "end_line": 8,
+      "vulnerable": true
+    },
+    {
+      "id": "nodegoat-crypto-key",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "config/env/all.js",
+      "start_line": 9,
+      "end_line": 9,
+      "vulnerable": true
+    },
+    {
+      "id": "nodegoat-plaintext-ssn",
+      "class": "secrets",
+      "cwe": "CWE-312",
+      "file": "app/data/profile-dao.js",
+      "start_line": 61,
+      "end_line": 63,
+      "vulnerable": true
+    },
+    {
+      "id": "nodegoat-password-hash",
+      "class": "secrets",
+      "cwe": "CWE-312",
+      "file": "app/data/user-dao.js",
+      "start_line": 28,
+      "end_line": 29,
+      "vulnerable": false
+    },
+    {
+      "id": "nodegoat-research-fetch",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "app/routes/research.js",
+      "start_line": 14,
+      "end_line": 16,
+      "vulnerable": true
+    }
+  ]
+}

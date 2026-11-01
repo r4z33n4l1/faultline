@@ -4,6 +4,9 @@ import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Command, CommanderError, Option } from "commander";
+import { ensureCorpusCache, resolveCorpusPaths } from "./bench/corpus.js";
+import { executeSarifBench, executeSemgrepBench } from "./bench/external.js";
+import { loadCorpusManifest } from "./bench/manifest.js";
 import { executeBench, recordedModel } from "./bench/run.js";
 import type { BenchStage } from "./bench/result.js";
 import {
@@ -190,6 +193,129 @@ function isBenchStage(value: string): value is BenchStage {
   return value === "candidates" || value === "findings";
 }
 
+async function runCorpus(
+  name: string,
+  out: string,
+  stage: string,
+  cacheOnly: boolean,
+  baseline: string | undefined,
+  sarif: string | undefined,
+  toolName: string | undefined,
+  toolVersion: string | undefined,
+  manifestFlag: string,
+  providerFlag: string | undefined,
+  modelFlag: string | undefined,
+  io: CliIo,
+): Promise<number> {
+  if (!isBenchStage(stage)) {
+    io.stderr("stage must be candidates or findings\n");
+    return 1;
+  }
+  if (baseline !== undefined && sarif !== undefined) {
+    io.stderr("Pass either --baseline or --sarif\n");
+    return 1;
+  }
+  if (baseline !== undefined && baseline !== "semgrep") {
+    io.stderr("baseline must be semgrep\n");
+    return 1;
+  }
+  const external = baseline !== undefined || sarif !== undefined;
+  if (external && stage === "findings") {
+    io.stderr("An imported static tool has no findings stage\n");
+    return 1;
+  }
+  if (external && (providerFlag !== undefined || modelFlag !== undefined)) {
+    io.stderr("An imported static tool does not take a provider\n");
+    return 1;
+  }
+  const cwd = io.cwd ?? process.cwd();
+  const env = io.env ?? process.env;
+  let paths: Awaited<ReturnType<typeof resolveCorpusPaths>>;
+  try {
+    paths = await resolveCorpusPaths(cwd, manifestFlag, name);
+    await ensureCorpusCache(paths, cacheOnly);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  const outDir = resolve(cwd, out);
+  if (sarif !== undefined) {
+    if (toolName === undefined || toolVersion === undefined) {
+      io.stderr("Scoring SARIF requires --tool-name and --tool-version\n");
+      return 1;
+    }
+    try {
+      await executeSarifBench({
+        root: paths.cacheDir,
+        targetLabel: paths.targetLabel,
+        truthPath: paths.truthPath,
+        truthLabel: paths.truthLabel,
+        outDir,
+        cwd,
+        tool: { name: toolName, version: toolVersion },
+        sarifPath: sarif,
+      });
+    } catch (error) {
+      io.stderr(`${messageOf(error)}\n`);
+      return 1;
+    }
+    io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
+    return 0;
+  }
+  if (baseline === "semgrep") {
+    let manifest: Awaited<ReturnType<typeof loadCorpusManifest>>;
+    try {
+      manifest = await loadCorpusManifest(paths.manifestPath);
+      await executeSemgrepBench({
+        root: paths.cacheDir,
+        targetLabel: paths.targetLabel,
+        truthPath: paths.truthPath,
+        truthLabel: paths.truthLabel,
+        outDir,
+        cwd,
+        tool: { name: "semgrep", version: manifest.semgrep.version },
+        bin: env.SEMGREP_BIN ?? "semgrep",
+        expectedVersion: manifest.semgrep.version,
+        rulesets: manifest.semgrep.rulesets,
+      });
+    } catch (error) {
+      io.stderr(`${messageOf(error)}\n`);
+      return 1;
+    }
+    io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
+    return 0;
+  }
+  const config = resolveProviderConfig(providerFlag, env, modelFlag);
+  let provider: ModelProvider | undefined;
+  try {
+    provider = await openProvider(providerFlag, modelFlag, io);
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  const providerName = provider?.name ?? config.name;
+  const model = recordedModel({
+    ...(providerName === undefined ? {} : { name: providerName }),
+    ...(config.model === undefined ? {} : { model: config.model }),
+  });
+  try {
+    await executeBench({
+      target: paths.targetLabel,
+      cwd,
+      outDir,
+      stage,
+      truthPath: paths.truthLabel,
+      model,
+      ...(provider === undefined ? {} : { provider }),
+    });
+  } catch (error) {
+    io.stderr(`${messageOf(error)}\n`);
+    return 1;
+  }
+  io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
+  return 0;
+}
+
 async function runBench(
   target: string,
   out: string,
@@ -360,9 +486,9 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
   program
     .command("bench")
     .description(
-      "Scan a directory and score candidates or findings against truth.json. Findings stage runs validation",
+      "Scan a directory and score candidates or findings against truth.json. Findings stage runs validation. --corpus checks out a pinned public training app into a gitignored cache and scores that tree",
     )
-    .argument("<dir>", "directory that contains the app and, by default, truth.json")
+    .argument("[dir]", "directory that contains the app and, by default, truth.json")
     .option("-o, --out <dir>", "output directory", "./faultline-bench")
     .addOption(
       new Option("--stage <stage>", "score candidates.json or findings.json")
@@ -372,11 +498,63 @@ export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<num
     .option("--truth <file>", "truth file (default <dir>/truth.json)")
     .option("--provider <name>", "model provider name (overrides FAULTLINE_PROVIDER)")
     .option("--model <id>", "model id (overrides FAULTLINE_MODEL)")
+    .option("--corpus <name>", "pinned app in bench/corpus/manifest.json")
+    .option("--manifest <file>", "corpus manifest", "bench/corpus/manifest.json")
+    .option("--cache-only", "do not clone; require the pinned cache")
+    .option("--baseline <tool>", "score Semgrep OSS instead of a Faultline scan")
+    .option("--sarif <file>", "score a SARIF file with the shared importer; does not run a tool")
+    .option("--tool-name <name>", "tool name recorded for --sarif")
+    .option("--tool-version <version>", "tool version recorded for --sarif")
     .action(
       async (
-        target: string,
-        opts: { out: string; stage: string; truth?: string; provider?: string; model?: string },
+        target: string | undefined,
+        opts: {
+          out: string;
+          stage: string;
+          truth?: string;
+          provider?: string;
+          model?: string;
+          corpus?: string;
+          manifest: string;
+          cacheOnly?: boolean;
+          baseline?: string;
+          sarif?: string;
+          toolName?: string;
+          toolVersion?: string;
+        },
       ) => {
+        if (opts.corpus !== undefined && target !== undefined) {
+          io.stderr("Pass a directory or --corpus, not both\n");
+          code = 1;
+          return;
+        }
+        if (opts.corpus !== undefined) {
+          code = await runCorpus(
+            opts.corpus,
+            opts.out,
+            opts.stage,
+            opts.cacheOnly === true,
+            opts.baseline,
+            opts.sarif,
+            opts.toolName,
+            opts.toolVersion,
+            opts.manifest,
+            opts.provider,
+            opts.model,
+            io,
+          );
+          return;
+        }
+        if (target === undefined) {
+          io.stderr("Pass a directory or --corpus <name>\n");
+          code = 1;
+          return;
+        }
+        if (opts.baseline !== undefined || opts.sarif !== undefined || opts.cacheOnly === true) {
+          io.stderr("--baseline, --sarif, and --cache-only require --corpus\n");
+          code = 1;
+          return;
+        }
         code = await runBench(
           target,
           opts.out,

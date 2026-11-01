@@ -1,0 +1,95 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "dvna-user-search-sql",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "core/appHandler.js",
+      "start_line": 10,
+      "end_line": 12,
+      "vulnerable": true
+    },
+    {
+      "id": "dvna-ping-exec",
+      "class": "injection",
+      "cwe": "CWE-78",
+      "file": "core/appHandler.js",
+      "start_line": 39,
+      "end_line": 39,
+      "vulnerable": true
+    },
+    {
+      "id": "dvna-calc-eval",
+      "class": "injection",
+      "cwe": "CWE-94",
+      "file": "core/appHandler.js",
+      "start_line": 195,
+      "end_line": 197,
+      "vulnerable": true
+    },
+    {
+      "id": "dvna-product-search-like",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "core/appHandler.js",
+      "start_line": 58,
+      "end_line": 64,
+      "vulnerable": false
+    },
+    {
+      "id": "dvna-users-api-authz",
+      "class": "authz_idor",
+      "cwe": "CWE-862",
+      "file": "routes/app.js",
+      "start_line": 42,
+      "end_line": 42,
+      "vulnerable": true
+    },
+    {
+      "id": "dvna-user-edit-idor",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "core/appHandler.js",
+      "start_line": 144,
+      "end_line": 149,
+      "vulnerable": true
+    },
+    {
+      "id": "dvna-user-edit-session",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "core/appHandler.js",
+      "start_line": 136,
+      "end_line": 141,
+      "vulnerable": false
+    },
+    {
+      "id": "dvna-session-secret",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "server.js",
+      "start_line": 23,
+      "end_line": 28,
+      "vulnerable": true
+    },
+    {
+      "id": "dvna-sequelize-query-log",
+      "class": "secrets",
+      "cwe": "CWE-532",
+      "file": "models/index.js",
+      "start_line": 12,
+      "end_line": 15,
+      "vulnerable": true
+    },
+    {
+      "id": "dvna-db-password-env",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "config/db.js",
+      "start_line": 2,
+      "end_line": 3,
+      "vulnerable": false
+    }
+  ]
+}

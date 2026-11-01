@@ -1,0 +1,194 @@
+{
+  "schema_version": "1",
+  "entries": [
+    {
+      "id": "juice-basket-idor",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "routes/basket.ts",
+      "start_line": 18,
+      "end_line": 32,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-basket-item-idor",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "routes/basketItems.ts",
+      "start_line": 36,
+      "end_line": 49,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-review-idor",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "routes/updateProductReviews.ts",
+      "start_line": 16,
+      "end_line": 20,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-product-put-authz",
+      "class": "authz_idor",
+      "cwe": "CWE-862",
+      "file": "server.ts",
+      "start_line": 398,
+      "end_line": 398,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-forged-feedback",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "routes/verify.ts",
+      "start_line": 30,
+      "end_line": 36,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-product-delete-denied",
+      "class": "authz_idor",
+      "cwe": "CWE-862",
+      "file": "server.ts",
+      "start_line": 399,
+      "end_line": 399,
+      "vulnerable": false
+    },
+    {
+      "id": "juice-profile-session-user",
+      "class": "authz_idor",
+      "cwe": "CWE-639",
+      "file": "routes/updateUserProfile.ts",
+      "start_line": 17,
+      "end_line": 25,
+      "vulnerable": false
+    },
+    {
+      "id": "juice-login-sql",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "routes/login.ts",
+      "start_line": 34,
+      "end_line": 34,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-search-sql",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "routes/search.ts",
+      "start_line": 23,
+      "end_line": 23,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-reviews-nosql-where",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "routes/showProductReviews.ts",
+      "start_line": 36,
+      "end_line": 36,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-orders-nosql-where",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "routes/trackOrder.ts",
+      "start_line": 18,
+      "end_line": 18,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-reviews-nosql-update",
+      "class": "injection",
+      "cwe": "CWE-943",
+      "file": "routes/updateProductReviews.ts",
+      "start_line": 17,
+      "end_line": 20,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-profile-eval",
+      "class": "injection",
+      "cwe": "CWE-94",
+      "file": "routes/userProfile.ts",
+      "start_line": 57,
+      "end_line": 65,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-basket-bound-query",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "routes/basket.ts",
+      "start_line": 19,
+      "end_line": 19,
+      "vulnerable": false
+    },
+    {
+      "id": "juice-chat-bound-like",
+      "class": "injection",
+      "cwe": "CWE-89",
+      "file": "routes/chat.ts",
+      "start_line": 123,
+      "end_line": 128,
+      "vulnerable": false
+    },
+    {
+      "id": "juice-testing-credentials",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "frontend/src/app/login/login.component.ts",
+      "start_line": 68,
+      "end_line": 69,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-terraform-private-key",
+      "class": "secrets",
+      "cwe": "CWE-321",
+      "file": "terraform/networking.tf",
+      "start_line": 171,
+      "end_line": 171,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-infra-terraform-private-key",
+      "class": "secrets",
+      "cwe": "CWE-321",
+      "file": "infrastructure/terraform/networking.tf",
+      "start_line": 171,
+      "end_line": 171,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-llm-key-from-env",
+      "class": "secrets",
+      "cwe": "CWE-798",
+      "file": "routes/chat.ts",
+      "start_line": 110,
+      "end_line": 110,
+      "vulnerable": false
+    },
+    {
+      "id": "juice-profile-image-fetch",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "routes/profileImageUrlUpload.ts",
+      "start_line": 18,
+      "end_line": 24,
+      "vulnerable": true
+    },
+    {
+      "id": "juice-webhook-env-url",
+      "class": "ssrf",
+      "cwe": "CWE-918",
+      "file": "lib/webhook.ts",
+      "start_line": 14,
+      "end_line": 18,
+      "vulnerable": false
+    }
+  ]
+}
