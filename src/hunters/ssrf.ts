@@ -4,7 +4,8 @@ import { fenceData } from "../recon/architecture.js";
 import { fileCoverageId, routeCoverageId } from "../recon/coverage.js";
 import type { ResolvedRouteHandler } from "../recon/handlers.js";
 import type { Inventory, InventoryMatch } from "../recon/inventory.js";
-import { parseCandidateList, type Candidate } from "../schema/candidate.js";
+import type { Candidate } from "../schema/candidate.js";
+import { acceptModelCandidates } from "./shared.js";
 import { groundCandidates } from "./ground.js";
 import { readSourceFile } from "./source.js";
 import {
@@ -2010,7 +2011,7 @@ export const ssrfHunter: Hunter = {
     const collected: Candidate[] = [];
     for (const site of reviewed) {
       const text = await ctx.provider.complete({ messages: buildSsrfPrompt(site) });
-      const parsed = parseCandidateList(text, "ssrf").slice(0, HUNTER_MAX_CANDIDATES_PER_SITE);
+      const parsed = acceptModelCandidates(ctx, text, "ssrf", heuristicCandidate(site).root_cause);
       await hydrateCitedFiles(ctx.root, allowed, plan.files, parsed);
       collected.push(...groundCandidates(parsed, plan.files));
     }

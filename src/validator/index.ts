@@ -3,6 +3,7 @@ import * as z from "zod";
 import { groundCandidates } from "../hunters/ground.js";
 import { redactSecretsFrom } from "../hunters/secrets.js";
 import { HUNTER_SITE_MAX_CHARS, HUNTER_SITE_MAX_LINES, stripComments } from "../hunters/shared.js";
+import { malformedExample } from "../malformed.js";
 import { normalizeRepoPath, readSourceFile } from "../hunters/source.js";
 import {
   isProviderFailure,
@@ -16,6 +17,7 @@ import type { Candidate } from "../schema/candidate.js";
 import {
   disprovedEntrySchema,
   findingSchema,
+  formatZodIssues,
   inconclusiveEntrySchema,
   providerErrorEntrySchema,
   type DisprovedEntry,
@@ -23,6 +25,7 @@ import {
   type InconclusiveEntry,
   type ProviderErrorEntry,
 } from "../schema/finding.js";
+import type { MalformedExample } from "../schema/coverage.js";
 import { buildContextPack, renderContextPayload, type ValidatorInventory } from "./context.js";
 
 export const VALIDATOR_CANDIDATE_CAP = 96;
@@ -65,6 +68,8 @@ export interface ValidationResult {
   disproved: RejectedCandidate[];
   inconclusive: InconclusiveCandidate[];
   errors: ProviderErrorCandidate[];
+  /** Validator replies that were not a schema-valid verdict. Not provider errors. */
+  malformed: MalformedExample[];
 }
 
 export interface ValidateOptions {
@@ -187,11 +192,36 @@ function findingId(key: string): string {
   return `fl_${createHash("sha256").update(key).digest("hex").slice(0, 16)}`;
 }
 
+/** Sink and location are known even when the model omits root_cause. */
+function citedRootCause(candidate: Candidate): string {
+  const cause = candidate.root_cause;
+  if (typeof cause === "string" && cause.trim().length > 0) {
+    return cause;
+  }
+  return `${candidate.symbol} at ${candidate.location.file}:${candidate.location.start_line}`;
+}
+
 export async function validateCandidates(
   candidates: readonly Candidate[],
   options: ValidateOptions,
 ): Promise<ValidationResult> {
-  const result: ValidationResult = { findings: [], disproved: [], inconclusive: [], errors: [] };
+  const result: ValidationResult = {
+    findings: [],
+    disproved: [],
+    inconclusive: [],
+    errors: [],
+    malformed: [],
+  };
+  function keepFinding(draft: unknown): void {
+    const parsed = findingSchema.safeParse(draft);
+    if (!parsed.success) {
+      result.malformed.push(
+        malformedExample("validator", formatZodIssues(parsed.error, "finding")),
+      );
+      return;
+    }
+    result.findings.push(parsed.data);
+  }
   let halt = options.providerHalt;
   const files = new Map<string, string>();
   const seen = new Set<string>();
@@ -209,7 +239,18 @@ export async function validateCandidates(
   }
   for (const [index, original] of candidates.entries()) {
     await hydrate([original.location.file, ...original.evidence.map((item) => item.file)]);
-    const candidate = JSON.parse(redact(JSON.stringify(original))) as Candidate;
+    let candidate: Candidate;
+    try {
+      candidate = JSON.parse(redact(JSON.stringify(original))) as Candidate;
+    } catch {
+      result.malformed.push(malformedExample("validator", "candidate could not be reread"));
+      result.inconclusive.push({
+        candidate: original,
+        reason: "Malformed reply or ungrounded evidence.",
+        kept: false,
+      });
+      continue;
+    }
     const attempts: Finding["disproof_attempts"] = [];
     const rootKey = (): string =>
       JSON.stringify([candidate.location.file, candidate.symbol, candidate.class]);
@@ -228,30 +269,28 @@ export async function validateCandidates(
       }
       const key = rootKey();
       seen.add(key);
-      result.findings.push(
-        findingSchema.parse({
-          id: findingId(key),
-          class: candidate.class,
-          cwe: candidate.cwe,
-          severity: candidate.severity,
-          confidence: {
-            level: "low",
-            reason: clip(`Inconclusive; kept by --keep-inconclusive. ${redacted}`),
-          },
-          location: candidate.location,
-          root_cause: candidate.root_cause,
-          evidence: candidate.evidence,
-          exploitability: "theoretical",
-          disproof_attempts: attempts,
-          validator_verdict: "inconclusive",
-          suggested_fix: {
-            summary: `Review the inconclusive ${candidate.class} candidate at the cited location before treating it as confirmed.`,
-          },
-          references: candidate.cwe
-            ? [`https://cwe.mitre.org/data/definitions/${candidate.cwe.slice(4)}.html`]
-            : [],
-        }),
-      );
+      keepFinding({
+        id: findingId(key),
+        class: candidate.class,
+        cwe: candidate.cwe,
+        severity: candidate.severity,
+        confidence: {
+          level: "low",
+          reason: clip(`Inconclusive; kept by --keep-inconclusive. ${redacted}`),
+        },
+        location: candidate.location,
+        root_cause: citedRootCause(candidate),
+        evidence: candidate.evidence,
+        exploitability: "theoretical",
+        disproof_attempts: attempts,
+        validator_verdict: "inconclusive",
+        suggested_fix: {
+          summary: `Review the inconclusive ${candidate.class} candidate at the cited location before treating it as confirmed.`,
+        },
+        references: candidate.cwe
+          ? [`https://cwe.mitre.org/data/definitions/${candidate.cwe.slice(4)}.html`]
+          : [],
+      });
     };
     if (halt !== undefined) {
       const reason =
@@ -331,10 +370,22 @@ export async function validateCandidates(
             ],
             jsonSchema: z.toJSONSchema(verdictSchema),
           });
-          const parsed = verdictSchema.safeParse(
-            JSON.parse(text.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/, "$1")) as unknown,
-          );
-          if (parsed.success) {
+          let payload: unknown;
+          try {
+            payload = JSON.parse(
+              text.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/, "$1"),
+            ) as unknown;
+          } catch {
+            result.malformed.push(malformedExample("validator", "validator reply was not JSON"));
+            payload = undefined;
+          }
+          const parsed = payload === undefined ? undefined : verdictSchema.safeParse(payload);
+          if (parsed !== undefined && !parsed.success) {
+            result.malformed.push(
+              malformedExample("validator", formatZodIssues(parsed.error, "verdict")),
+            );
+          }
+          if (parsed?.success) {
             await hydrate([
               ...parsed.data.evidence.map((item) => item.file),
               ...(parsed.data.guard === undefined ? [] : [parsed.data.guard.file]),
@@ -356,6 +407,9 @@ export async function validateCandidates(
         } catch (error) {
           if (!isProviderFailure(error)) {
             verdict = undefined;
+            result.malformed.push(
+              malformedExample("validator", "validator reply could not be read"),
+            );
           } else {
             const reason = clip(redact(providerFailureMessage(error)));
             result.errors.push({ candidate, reason });
@@ -386,27 +440,25 @@ export async function validateCandidates(
       continue;
     }
     seen.add(key);
-    result.findings.push(
-      findingSchema.parse({
-        id: findingId(key),
-        class: grounded.class,
-        cwe: grounded.cwe,
-        severity: grounded.severity,
-        confidence: grounded.confidence,
-        location: grounded.location,
-        root_cause: grounded.root_cause,
-        evidence: grounded.evidence,
-        exploitability: "theoretical",
-        disproof_attempts: attempts,
-        validator_verdict: "confirmed",
-        suggested_fix: {
-          summary: `Address the ${grounded.class} root cause at the cited location.`,
-        },
-        references: grounded.cwe
-          ? [`https://cwe.mitre.org/data/definitions/${grounded.cwe.slice(4)}.html`]
-          : [],
-      }),
-    );
+    keepFinding({
+      id: findingId(key),
+      class: grounded.class,
+      cwe: grounded.cwe,
+      severity: grounded.severity,
+      confidence: grounded.confidence,
+      location: grounded.location,
+      root_cause: citedRootCause(grounded),
+      evidence: grounded.evidence,
+      exploitability: "theoretical",
+      disproof_attempts: attempts,
+      validator_verdict: "confirmed",
+      suggested_fix: {
+        summary: `Address the ${grounded.class} root cause at the cited location.`,
+      },
+      references: grounded.cwe
+        ? [`https://cwe.mitre.org/data/definitions/${grounded.cwe.slice(4)}.html`]
+        : [],
+    });
   }
   return result;
 }

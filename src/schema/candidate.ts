@@ -1,9 +1,12 @@
 import * as z from "zod";
+import { malformedExample } from "../malformed.js";
+import type { MalformedExample } from "./coverage.js";
 import {
   CONFIDENCE_LEVELS,
   FINDING_CLASSES,
   SCHEMA_VERSION,
   SEVERITIES,
+  formatZodIssues,
   locationSchema,
   runSchema,
   type FindingClass,
@@ -71,16 +74,43 @@ function unwrapJson(text: string): string {
   return trimmed;
 }
 
+export interface ModelCandidateParse {
+  candidates: Candidate[];
+  malformed: MalformedExample[];
+}
+
 /**
- * Parse a model payload into candidates. Malformed JSON, the wrong envelope,
- * and items that fail the schema are discarded. Nothing is confirmed.
+ * Fill a missing root_cause from the sink the hunter already selected.
+ * Other required fields are not invented.
  */
-export function parseCandidateList(text: string, expectedClass?: FindingClass): Candidate[] {
+function supplyRootCause(item: unknown, rootCause: string | undefined): unknown {
+  if (rootCause === undefined || rootCause.length === 0 || !isRecord(item)) {
+    return item;
+  }
+  const current = item.root_cause;
+  if (typeof current === "string" && current.trim().length > 0) {
+    return item;
+  }
+  return { ...item, root_cause: rootCause };
+}
+
+/**
+ * Parse a model payload into candidates. A missing root_cause is filled from
+ * `rootCause` when the caller has one. Other schema failures are returned as
+ * malformed examples and are not candidates. Nothing is confirmed.
+ */
+export function parseModelCandidates(
+  text: string,
+  expectedClass?: FindingClass,
+  rootCause?: string,
+): ModelCandidateParse {
+  const malformed: MalformedExample[] = [];
   let parsed: unknown;
   try {
     parsed = JSON.parse(unwrapJson(text)) as unknown;
   } catch {
-    return [];
+    malformed.push(malformedExample("hunter", "reply was not JSON"));
+    return { candidates: [], malformed };
   }
 
   let items: unknown[];
@@ -88,23 +118,42 @@ export function parseCandidateList(text: string, expectedClass?: FindingClass): 
     items = parsed;
   } else if (isRecord(parsed) && Array.isArray(parsed.candidates)) {
     items = parsed.candidates;
+  } else if (isRecord(parsed) && Array.isArray(parsed.findings)) {
+    items = parsed.findings;
+  } else if (isRecord(parsed)) {
+    items = [parsed];
   } else {
-    return [];
+    malformed.push(malformedExample("hunter", "reply had no candidates"));
+    return { candidates: [], malformed };
   }
 
-  const kept: Candidate[] = [];
+  const candidates: Candidate[] = [];
   const limit = Math.min(items.length, MAX_PARSED_ITEMS);
   for (let index = 0; index < limit; index += 1) {
-    const result = candidateSchema.safeParse(items[index]);
+    const result = candidateSchema.safeParse(supplyRootCause(items[index], rootCause));
     if (!result.success) {
+      malformed.push(
+        malformedExample("hunter", formatZodIssues(result.error, `candidates.${index}`)),
+      );
       continue;
     }
     if (expectedClass !== undefined && result.data.class !== expectedClass) {
+      malformed.push(
+        malformedExample("hunter", `candidates.${index}: class did not match ${expectedClass}`),
+      );
       continue;
     }
-    kept.push(result.data);
+    candidates.push(result.data);
   }
-  return kept;
+  return { candidates, malformed };
+}
+
+/**
+ * Parse a model payload into candidates. Malformed JSON, the wrong envelope,
+ * and items that fail the schema are discarded. Nothing is confirmed.
+ */
+export function parseCandidateList(text: string, expectedClass?: FindingClass): Candidate[] {
+  return parseModelCandidates(text, expectedClass).candidates;
 }
 
 export function serializeCandidates(file: CandidatesFile): string {

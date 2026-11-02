@@ -89,8 +89,15 @@ it("drops a discovery site whose line or symbol is not in the shown window", () 
       ],
     }),
   );
-  expect(parsed.map((site) => site.class)).toEqual(["injection", "injection", "ssrf", "injection"]);
-  const grounded = groundDiscoverySites(parsed, "src/app.ts", text, 1, 3, text);
+  expect(parsed.sites.map((site) => site.class)).toEqual([
+    "injection",
+    "injection",
+    "ssrf",
+    "injection",
+  ]);
+  expect(parsed.malformed).toHaveLength(1);
+  expect(parsed.malformed[0]?.source).toBe("discovery");
+  const grounded = groundDiscoverySites(parsed.sites, "src/app.ts", text, 1, 3, text);
   expect(grounded).toHaveLength(1);
   expect(grounded[0]).toMatchObject({
     class: "injection",
@@ -109,7 +116,14 @@ it("rejects a line that exists in the file but was outside the fenced window", (
     }),
   );
   expect(
-    groundDiscoverySites(parsed, "src/app.ts", text, 1, 2, text.split("\n").slice(0, 2).join("\n")),
+    groundDiscoverySites(
+      parsed.sites,
+      "src/app.ts",
+      text,
+      1,
+      2,
+      text.split("\n").slice(0, 2).join("\n"),
+    ),
   ).toEqual([]);
 });
 

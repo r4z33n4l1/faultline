@@ -1,12 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { discoverSites } from "../discovery/run.js";
-import {
-  resolveDiscoveryBudget,
-  type DiscoveredSite,
-  type DiscoveryRecord,
-} from "../discovery/types.js";
+import { discoverSites, type DiscoveryResult } from "../discovery/run.js";
+import { resolveDiscoveryBudget } from "../discovery/types.js";
 import {
   isProviderFailure,
   isProviderSetupError,
@@ -15,6 +11,7 @@ import {
 import type { ModelProvider } from "../providers/types.js";
 import { hunters } from "../hunters/registry.js";
 import type { HunterContext } from "../hunters/types.js";
+import { malformedExamples } from "../malformed.js";
 import { writeRunOutput } from "../output.js";
 import { provenanceFor, runPipeline } from "../pipeline.js";
 import {
@@ -29,10 +26,12 @@ import { renderArchitecture, renderInventoryArchitecture } from "./architecture.
 import {
   applyCoverageMarks,
   applyDiscoveryRecords,
+  applyMalformed,
   buildCoverage,
   serializeCoverage,
   type CoverageMark,
 } from "./coverage.js";
+import type { MalformedExample } from "../schema/coverage.js";
 import {
   collectInventory,
   inventoryCapNote,
@@ -63,9 +62,9 @@ async function discoverForProvider(
   inventory: Inventory,
   provider: ModelProvider | undefined,
   budget: number | undefined,
-): Promise<{ sites: DiscoveredSite[]; records: DiscoveryRecord[]; halted?: string }> {
+): Promise<DiscoveryResult> {
   if (provider === undefined) {
-    return { sites: [], records: [] };
+    return { sites: [], records: [], malformed: [] };
   }
   return discoverSites({
     root,
@@ -93,7 +92,7 @@ export interface ScanResult {
 }
 
 function emptyValidation(): ValidationResult {
-  return { findings: [], disproved: [], inconclusive: [], errors: [] };
+  return { findings: [], disproved: [], inconclusive: [], errors: [], malformed: [] };
 }
 
 export async function executeScan(request: ScanRequest): Promise<ScanResult> {
@@ -122,6 +121,7 @@ export async function executeScan(request: ScanRequest): Promise<ScanResult> {
   const startedAt = request.startedAt ?? new Date();
   const runId = request.runId ?? randomUUID();
   const marks = new Map<string, CoverageMark>();
+  const malformed: MalformedExample[] = [];
   const model = architectureHalt === undefined ? request.provider : undefined;
   const discovered = await discoverForProvider(abs, inventory, model, request.discoveryBudget);
   const halted = architectureHalt ?? discovered.halted;
@@ -133,6 +133,9 @@ export async function executeScan(request: ScanRequest): Promise<ScanResult> {
     ...(discovered.sites.length === 0 ? {} : { discovered: discovered.sites }),
     markCoverage(unitId, status, reason) {
       marks.set(unitId, { status, reason });
+    },
+    recordMalformed(items) {
+      malformed.push(...items);
     },
   };
   if (model !== undefined && halted === undefined) {
@@ -151,10 +154,6 @@ export async function executeScan(request: ScanRequest): Promise<ScanResult> {
     }
   }
   const stop = halted ?? huntHalt;
-  const coverage = applyDiscoveryRecords(
-    applyCoverageMarks(buildCoverage(request.target, inventory), marks),
-    discovered.records,
-  );
   const validation =
     request.validate === false
       ? emptyValidation()
@@ -165,6 +164,15 @@ export async function executeScan(request: ScanRequest): Promise<ScanResult> {
           inventory,
           keepInconclusive: request.keepInconclusive === true,
         });
+  malformed.push(...discovered.malformed, ...validation.malformed);
+  const examples = malformedExamples(malformed);
+  const coverage = applyMalformed(
+    applyDiscoveryRecords(
+      applyCoverageMarks(buildCoverage(request.target, inventory), marks),
+      discovered.records,
+    ),
+    examples,
+  );
   const discoveryErrors = discovered.records.filter((record) => record.status === "error").length;
   let providerErrors = discoveryErrors + validation.errors.length;
   if (stop !== undefined && providerErrors === 0) {
@@ -185,6 +193,7 @@ export async function executeScan(request: ScanRequest): Promise<ScanResult> {
     runId,
     findings: validation.findings,
     providerErrorCount: providerErrors,
+    malformedCount: malformed.length,
     ...(providerError === undefined ? {} : { providerError }),
   });
   await writeRunOutput(request.outDir, findings, {
@@ -194,6 +203,7 @@ export async function executeScan(request: ScanRequest): Promise<ScanResult> {
     inconclusive: inconclusiveEntries(validation.inconclusive),
     errors: providerErrorEntries(validation.errors),
     inventoryNote: inventoryCapNote(inventory),
+    malformed: examples,
   });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");
   await writeFile(join(request.outDir, "coverage.json"), serializeCoverage(coverage), "utf8");

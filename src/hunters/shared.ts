@@ -1,4 +1,6 @@
-import type { Candidate } from "../schema/candidate.js";
+import type { MalformedExample } from "../schema/coverage.js";
+import { parseModelCandidates, type Candidate } from "../schema/candidate.js";
+import type { FindingClass } from "../schema/finding.js";
 import { normalizeRepoPath, readSourceFile } from "./source.js";
 
 /**
@@ -10,6 +12,18 @@ export const HUNTER_SITE_CAP = 40;
 export const HUNTER_SITE_MAX_LINES = 80;
 export const HUNTER_SITE_MAX_CHARS = 4_000;
 export const HUNTER_MAX_CANDIDATES_PER_SITE = 3;
+
+/** Keep schema-valid model candidates. Record the rest. Fill root_cause from the site when it is missing. */
+export function acceptModelCandidates(
+  ctx: { recordMalformed?(items: readonly MalformedExample[]): void },
+  text: string,
+  expectedClass: FindingClass,
+  rootCause: string,
+): Candidate[] {
+  const parsed = parseModelCandidates(text, expectedClass, rootCause);
+  ctx.recordMalformed?.(parsed.malformed);
+  return parsed.candidates.slice(0, HUNTER_MAX_CANDIDATES_PER_SITE);
+}
 
 export const HEURISTIC_CONFIDENCE_REASON =
   "Deterministic pre-pass only. A validator has not reviewed this candidate.";

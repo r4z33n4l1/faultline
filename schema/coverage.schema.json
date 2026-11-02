@@ -212,6 +212,32 @@
         ],
         "additionalProperties": false
       }
+    },
+    "malformed": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "discovery",
+              "hunter",
+              "validator"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "source",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
@@ -219,7 +245,8 @@
     "target",
     "units",
     "skipped",
-    "discovery"
+    "discovery",
+    "malformed"
   ],
   "additionalProperties": false
 }

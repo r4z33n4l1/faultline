@@ -24,6 +24,8 @@ export interface PipelineInput {
   providerErrorCount?: number;
   /** First provider failure message, already secret-redacted. */
   providerError?: string;
+  /** Model objects rejected at the reply boundary. Does not fail the run. */
+  malformedCount?: number;
 }
 
 export async function provenanceFor(
@@ -48,6 +50,7 @@ export function runPipeline(input: PipelineInput): FindingsFile {
     model: input.model ?? input.provider?.model ?? null,
     commit: input.commit ?? null,
     provider_error_count: input.providerErrorCount ?? 0,
+    malformed_count: input.malformedCount ?? 0,
     ...(input.providerError === undefined || input.providerError.length === 0
       ? {}
       : { provider_error: input.providerError }),
