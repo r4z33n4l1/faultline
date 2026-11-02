@@ -5,7 +5,8 @@ import { fenceData } from "../recon/architecture.js";
 import { fileCoverageId, routeCoverageId } from "../recon/coverage.js";
 import type { Inventory } from "../recon/inventory.js";
 import type { Severity } from "../schema/finding.js";
-import { parseCandidateList, type Candidate } from "../schema/candidate.js";
+import type { Candidate } from "../schema/candidate.js";
+import { acceptModelCandidates } from "./shared.js";
 import { groundCandidates } from "./ground.js";
 import { readSourceFile } from "./source.js";
 import {
@@ -1234,9 +1235,12 @@ export const secretsHunter: Hunter = {
         continue;
       }
       const text = await ctx.provider.complete({ messages });
-      const parsed = parseCandidateList(text, "secrets")
-        .slice(0, HUNTER_MAX_CANDIDATES_PER_SITE)
-        .filter((candidate) => !candidateLeaks(candidate, observed));
+      const parsed = acceptModelCandidates(
+        ctx,
+        text,
+        "secrets",
+        heuristicCandidate(site).root_cause,
+      ).filter((candidate) => !candidateLeaks(candidate, observed));
       await hydrateCitedFiles(ctx.root, allowed, plan.files, parsed);
       collected.push(...groundCandidates(parsed, plan.files));
     }

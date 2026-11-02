@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { discoverSites, type DiscoveryResult } from "../discovery/run.js";
 import { resolveDiscoveryBudget } from "../discovery/types.js";
 import { runHunters } from "../recon/run.js";
+import { malformedExamples } from "../malformed.js";
 import { writeRunOutput } from "../output.js";
 import { provenanceFor, runPipeline } from "../pipeline.js";
 import {
@@ -23,10 +24,12 @@ import { renderArchitecture, renderInventoryArchitecture } from "../recon/archit
 import {
   applyCoverageMarks,
   applyDiscoveryRecords,
+  applyMalformed,
   buildCoverage,
   serializeCoverage,
   type CoverageMark,
 } from "../recon/coverage.js";
+import type { MalformedExample } from "../schema/coverage.js";
 import {
   collectInventory,
   inventoryCapNote,
@@ -71,7 +74,7 @@ export interface PrResult {
 }
 
 function emptyValidation(): ValidationResult {
-  return { findings: [], disproved: [], inconclusive: [], errors: [] };
+  return { findings: [], disproved: [], inconclusive: [], errors: [], malformed: [] };
 }
 
 export async function executePr(request: PrRequest): Promise<PrResult> {
@@ -104,11 +107,12 @@ export async function executePr(request: PrRequest): Promise<PrResult> {
   const startedAt = request.startedAt ?? new Date();
   const runId = request.runId ?? randomUUID();
   const marks = new Map<string, CoverageMark>();
+  const malformed: MalformedExample[] = [];
   const scoped = scopeInventory(inventory, new Set(changed.map((file) => file.path)));
   const model = architectureHalt === undefined ? request.provider : undefined;
   const discovered: DiscoveryResult =
     model === undefined
-      ? { sites: [], records: [] }
+      ? { sites: [], records: [], malformed: [] }
       : await discoverSites({
           root: request.repo,
           inventory: scoped,
@@ -124,6 +128,9 @@ export async function executePr(request: PrRequest): Promise<PrResult> {
     ...(discovered.sites.length === 0 ? {} : { discovered: discovered.sites }),
     markCoverage(unitId, status, reason) {
       marks.set(unitId, { status, reason });
+    },
+    recordMalformed(items) {
+      malformed.push(...items);
     },
   };
   if (model !== undefined && halted === undefined) {
@@ -145,13 +152,9 @@ export async function executePr(request: PrRequest): Promise<PrResult> {
   const candidates = found.filter((candidate) =>
     candidateOverlapsDiff(candidate, changed, request.context),
   );
-  const coverage = applyOutsideDiff(
-    applyDiscoveryRecords(
-      applyCoverageMarks(buildCoverage(request.repoLabel, inventory), marks),
-      discovered.records,
-    ),
-    changed,
-    request.context,
+  const ledger = applyDiscoveryRecords(
+    applyCoverageMarks(buildCoverage(request.repoLabel, inventory), marks),
+    discovered.records,
   );
   const validation =
     request.validate === false
@@ -163,6 +166,9 @@ export async function executePr(request: PrRequest): Promise<PrResult> {
           inventory,
           keepInconclusive: request.keepInconclusive === true,
         });
+  malformed.push(...discovered.malformed, ...validation.malformed);
+  const examples = malformedExamples(malformed);
+  const coverage = applyOutsideDiff(applyMalformed(ledger, examples), changed, request.context);
   const discoveryErrors = discovered.records.filter((record) => record.status === "error").length;
   let providerErrors = discoveryErrors + validation.errors.length;
   if (stop !== undefined && providerErrors === 0) {
@@ -183,6 +189,7 @@ export async function executePr(request: PrRequest): Promise<PrResult> {
     runId,
     findings: validation.findings,
     providerErrorCount: providerErrors,
+    malformedCount: malformed.length,
     ...(providerError === undefined ? {} : { providerError }),
   });
   await writeRunOutput(request.outDir, findings, {
@@ -194,6 +201,7 @@ export async function executePr(request: PrRequest): Promise<PrResult> {
     changedFiles: changed.map((file) => file.path),
     hunkContext: request.context,
     inventoryNote: inventoryCapNote(inventory),
+    malformed: examples,
   });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");
   await writeFile(join(request.outDir, "coverage.json"), serializeCoverage(coverage), "utf8");

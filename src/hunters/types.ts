@@ -2,7 +2,7 @@ import type { DiscoveredSite } from "../discovery/types.js";
 import type { ModelProvider } from "../providers/types.js";
 import type { Inventory } from "../recon/inventory.js";
 import type { Candidate } from "../schema/candidate.js";
-import type { CoverageClass, CoverageStatus } from "../schema/coverage.js";
+import type { CoverageClass, CoverageStatus, MalformedExample } from "../schema/coverage.js";
 
 export interface HunterContext {
   /** Absolute directory that was inventoried. */
@@ -22,6 +22,8 @@ export interface HunterContext {
     status: Extract<CoverageStatus, "hunted" | "skipped">,
     reason: string,
   ): void;
+  /** Model objects this hunter rejected. Omitted by unit tests that only inspect candidates. */
+  recordMalformed?(items: readonly MalformedExample[]): void;
 }
 
 /** One bug class. Register another class by adding a hunter module. */

@@ -84,6 +84,11 @@ export const runSchema = z.strictObject({
   provider_error_count: z.number().int().nonnegative().optional(),
   /** First provider failure message, secret-redacted. */
   provider_error: nonEmpty.optional(),
+  /**
+   * Model objects rejected at the reply boundary. Does not fail the run.
+   * Examples live in coverage.json and report.md.
+   */
+  malformed_count: z.number().int().nonnegative().optional(),
 });
 
 export const disprovedEntrySchema = z.strictObject({

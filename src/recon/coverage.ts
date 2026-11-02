@@ -6,6 +6,7 @@ import {
   type CoverageFile,
   type CoverageStatus,
   type CoverageUnit,
+  type MalformedExample,
 } from "../schema/coverage.js";
 import type { Inventory } from "./inventory.js";
 
@@ -92,7 +93,19 @@ export function buildCoverage(target: string, inventory: Inventory): CoverageFil
     units,
     skipped,
     discovery: [],
+    malformed: [],
   });
+}
+
+/** Attach capped malformed-reply examples. An empty list leaves the ledger unchanged. */
+export function applyMalformed(
+  coverage: CoverageFile,
+  examples: readonly MalformedExample[],
+): CoverageFile {
+  if (examples.length === 0) {
+    return coverage;
+  }
+  return coverageFileSchema.parse({ ...coverage, malformed: examples });
 }
 
 /** Attach discovery records. An empty list leaves a ledger that already has none. */

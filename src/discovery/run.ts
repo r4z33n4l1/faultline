@@ -11,7 +11,10 @@ import type { ModelProvider } from "../providers/types.js";
 import { fenceData } from "../recon/architecture.js";
 import type { Inventory } from "../recon/inventory.js";
 import { COVERAGE_CLASSES, type DiscoveryRecord } from "../schema/coverage.js";
+import { formatZodIssues } from "../schema/finding.js";
 import { redactSecretsFrom } from "../hunters/secrets.js";
+import { malformedExample } from "../malformed.js";
+import type { MalformedExample } from "../schema/coverage.js";
 import { selectDiscoveryUnits, type DiscoveryUnit } from "./select.js";
 import {
   DISCOVERY_BUDGET_REASON,
@@ -108,6 +111,8 @@ export interface DiscoveryRequest {
 export interface DiscoveryResult {
   sites: DiscoveredSite[];
   records: DiscoveryRecord[];
+  /** Schema-invalid reply items. Not a provider failure. */
+  malformed: MalformedExample[];
   /** Set when a usage or rate limit stopped later discovery calls. */
   halted?: string;
 }
@@ -125,21 +130,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Parse a discovery reply. Malformed items are dropped. An unusable envelope yields none. */
-export function parseDiscoveryResponse(text: string): ParsedDiscoverySite[] {
+export interface DiscoveryReply {
+  sites: ParsedDiscoverySite[];
+  malformed: MalformedExample[];
+}
+
+/** Parse a discovery reply. Invalid items are returned, not thrown. An unusable envelope yields none. */
+export function parseDiscoveryResponse(text: string): DiscoveryReply {
+  const malformed: MalformedExample[] = [];
   let parsed: unknown;
   try {
     parsed = JSON.parse(unwrapJson(text)) as unknown;
   } catch {
-    return [];
+    malformed.push(malformedExample("discovery", "reply was not JSON"));
+    return { sites: [], malformed };
   }
   if (!isRecord(parsed) || !Array.isArray(parsed.sites)) {
-    return [];
+    malformed.push(malformedExample("discovery", "reply had no sites array"));
+    return { sites: [], malformed };
   }
   const sites: ParsedDiscoverySite[] = [];
-  for (const item of parsed.sites) {
+  for (let index = 0; index < parsed.sites.length; index += 1) {
+    const item = parsed.sites[index];
     const result = siteSchema.safeParse(item);
     if (!result.success) {
+      malformed.push(
+        malformedExample("discovery", formatZodIssues(result.error, `sites.${index}`)),
+      );
       continue;
     }
     const site: ParsedDiscoverySite = {
@@ -154,11 +171,12 @@ export function parseDiscoveryResponse(text: string): ParsedDiscoverySite[] {
       site.symbol = result.data.symbol;
     }
     if (site.reason.length === 0) {
+      malformed.push(malformedExample("discovery", `sites.${index}: reason was empty`));
       continue;
     }
     sites.push(site);
   }
-  return sites;
+  return { sites, malformed };
 }
 
 function linesOf(text: string): string[] {
@@ -370,6 +388,7 @@ export async function discoverSites(request: DiscoveryRequest): Promise<Discover
   const reviewed = ordered.slice(0, budget);
   const deferred = ordered.slice(budget);
   const stop = { message: undefined as string | undefined };
+  const malformed: MalformedExample[] = [];
   const outcomes = await mapLimit(reviewed, CODEX_MAX_CONCURRENCY, async (unit) => {
     if (stop.message !== undefined) {
       return {
@@ -386,8 +405,9 @@ export async function discoverSites(request: DiscoveryRequest): Promise<Discover
         messages: buildDiscoveryPrompt(unit, shown),
       });
       const parsed = parseDiscoveryResponse(text);
+      malformed.push(...parsed.malformed);
       const grounded = groundDiscoverySites(
-        parsed,
+        parsed.sites,
         unit.path,
         unit.text,
         unit.startLine,
@@ -428,6 +448,7 @@ export async function discoverSites(request: DiscoveryRequest): Promise<Discover
   return {
     sites: dedupeSites(outcomes.flatMap((outcome) => outcome.sites)),
     records,
+    malformed,
     ...(stop.message === undefined ? {} : { halted: stop.message }),
   };
 }

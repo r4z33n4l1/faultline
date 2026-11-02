@@ -1,3 +1,4 @@
+import type { MalformedExample } from "./schema/coverage.js";
 import { DEFAULT_HUNK_CONTEXT } from "./pr/diff.js";
 import {
   SEVERITIES,
@@ -100,6 +101,8 @@ export interface ReportOptions {
   hunkContext?: number;
   /** Set when a file or byte cap left paths unread. */
   inventoryNote?: string;
+  /** Capped examples. The count on the run may be higher. */
+  malformed?: readonly MalformedExample[];
 }
 
 function reviewLine(
@@ -164,6 +167,9 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
   if (file.run.provider_error !== undefined) {
     lines.push(file.run.provider_error);
   }
+  if ((file.run.malformed_count ?? 0) > 0) {
+    lines.push(`Malformed model output: ${file.run.malformed_count}.`);
+  }
   if (keptInconclusive.length > 0) {
     const noun = keptInconclusive.length === 1 ? "finding" : "findings";
     lines.push(
@@ -214,6 +220,14 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
     lines.push("", "## Provider errors", "");
     for (const item of providerErrors) {
       lines.push(reviewLine(item));
+    }
+    lines.push("");
+  }
+  const malformed = options.malformed ?? [];
+  if (malformed.length > 0) {
+    lines.push("", "## Malformed model output", "");
+    for (const item of malformed) {
+      lines.push(`- ${item.source}: ${item.reason}`);
     }
     lines.push("");
   }

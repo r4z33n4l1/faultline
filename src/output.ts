@@ -10,6 +10,7 @@ import {
   type InconclusiveEntry,
   type ProviderErrorEntry,
 } from "./schema/finding.js";
+import type { MalformedExample } from "./schema/coverage.js";
 import { renderReport } from "./report.js";
 import { serializeSarif, toSarif } from "./sarif.js";
 
@@ -65,6 +66,8 @@ export interface WriteRunOptions {
   hunkContext?: number;
   /** Set when a file or byte cap left paths unread. */
   inventoryNote?: string;
+  /** Capped examples of model objects rejected before findings assembly. */
+  malformed?: readonly MalformedExample[];
 }
 
 export async function writeRunOutput(
@@ -88,6 +91,7 @@ export async function writeRunOutput(
     changedFiles: options.changedFiles,
     hunkContext: options.hunkContext,
     inventoryNote: options.inventoryNote,
+    ...(options.malformed === undefined ? {} : { malformed: options.malformed }),
   });
   const sarifText = serializeSarif(toSarif(file, scanRoot));
   await mkdir(outDir, { recursive: true });

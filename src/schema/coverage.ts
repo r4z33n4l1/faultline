@@ -54,6 +54,13 @@ export const DISCOVERY_UNIT_KINDS = [
 ] as const;
 
 export const DISCOVERY_REVIEW_STATUSES = ["reviewed", "skipped", "error"] as const;
+export const MALFORMED_SOURCES = ["discovery", "hunter", "validator"] as const;
+
+/** One model object rejected before findings assembly. The reason is secret-redacted. */
+export const malformedExampleSchema = z.strictObject({
+  source: z.enum(MALFORMED_SOURCES),
+  reason: nonEmpty,
+});
 
 /** One request-handling or config unit the discovery pass considered. */
 export const discoveryRecordSchema = z.strictObject({
@@ -73,6 +80,8 @@ export const coverageFileSchema = z.strictObject({
   skipped: z.array(coverageSkipSchema),
   /** Units the discovery pass reviewed, skipped, or failed to call. Empty when no provider ran. */
   discovery: z.array(discoveryRecordSchema).default([]),
+  /** Examples of model objects rejected at the reply boundary. The run count may be higher. */
+  malformed: z.array(malformedExampleSchema).default([]),
 });
 
 export type CoverageFile = z.infer<typeof coverageFileSchema>;
@@ -83,6 +92,8 @@ export type CoverageStatus = (typeof COVERAGE_STATUSES)[number];
 export type CoverageSkipReason = (typeof COVERAGE_SKIP_REASONS)[number];
 export type DiscoveryRecord = z.infer<typeof discoveryRecordSchema>;
 export type DiscoveryUnitKind = (typeof DISCOVERY_UNIT_KINDS)[number];
+export type MalformedExample = z.infer<typeof malformedExampleSchema>;
+export type MalformedSource = (typeof MALFORMED_SOURCES)[number];
 
 export function renderCoverageJsonSchema(): string {
   return `${JSON.stringify(z.toJSONSchema(coverageFileSchema), null, 2)}\n`;
