@@ -172,6 +172,7 @@ export function benchResultFromDetections(
   draft: BenchResultDraft,
   truth: TruthFile,
   detections: readonly DetectionSpan[],
+  providerErrorCount = 0,
 ): BenchResult {
   const entries: TruthEntry[] = truth.entries;
   const scored = scoreBench(entries, detections);
@@ -191,6 +192,7 @@ export function benchResultFromDetections(
       provider,
       model,
       commit: draft.commit,
+      provider_error_count: providerErrorCount,
     },
     counts: {
       truth: entries.length,
@@ -267,7 +269,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
   if (request.discoveryBudget !== undefined) {
     scan.discoveryBudget = request.discoveryBudget;
   }
-  await executeScan(scan);
+  const scanResult = await executeScan(scan);
   const stageName = request.stage === "candidates" ? "candidates.json" : "findings.json";
   const stagePath = resolve(request.outDir, stageName);
   const json = await readJson(stagePath);
@@ -282,6 +284,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
       draftFromScan(request, parsed.data.run, commit),
       truth,
       detectionsFromCandidates(parsed.data),
+      scanResult.providerErrors,
     );
   } else {
     const parsed = findingsFileSchema.safeParse(json);
@@ -292,6 +295,7 @@ export async function executeBench(request: BenchRequest): Promise<BenchResult> 
       draftFromScan(request, parsed.data.run, commit),
       truth,
       detectionsFromFindings(parsed.data),
+      scanResult.providerErrors,
     );
   }
   await writeBenchResult(request.outDir, result);

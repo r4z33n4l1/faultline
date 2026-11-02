@@ -53,7 +53,7 @@ export const DISCOVERY_UNIT_KINDS = [
   "fallback",
 ] as const;
 
-export const DISCOVERY_REVIEW_STATUSES = ["reviewed", "skipped"] as const;
+export const DISCOVERY_REVIEW_STATUSES = ["reviewed", "skipped", "error"] as const;
 
 /** One request-handling or config unit the discovery pass considered. */
 export const discoveryRecordSchema = z.strictObject({
@@ -71,7 +71,7 @@ export const coverageFileSchema = z.strictObject({
   target: nonEmpty,
   units: z.array(coverageUnitSchema),
   skipped: z.array(coverageSkipSchema),
-  /** Units the discovery pass reviewed or skipped. Empty when no provider ran. */
+  /** Units the discovery pass reviewed, skipped, or failed to call. Empty when no provider ran. */
   discovery: z.array(discoveryRecordSchema).default([]),
 });
 

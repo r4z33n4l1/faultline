@@ -1,5 +1,12 @@
 import * as z from "zod";
 import { CODEX_MAX_CONCURRENCY } from "../providers/codex.js";
+import {
+  isProviderFailure,
+  isProviderSetupError,
+  isUsageOrRateLimit,
+  PROVIDER_LIMIT_STOP,
+  providerFailureMessage,
+} from "../providers/errors.js";
 import type { ModelProvider } from "../providers/types.js";
 import { fenceData } from "../recon/architecture.js";
 import type { Inventory } from "../recon/inventory.js";
@@ -101,6 +108,8 @@ export interface DiscoveryRequest {
 export interface DiscoveryResult {
   sites: DiscoveredSite[];
   records: DiscoveryRecord[];
+  /** Set when a usage or rate limit stopped later discovery calls. */
+  halted?: string;
 }
 
 function unwrapJson(text: string): string {
@@ -309,6 +318,22 @@ function budgetRecord(unit: DiscoveryUnit): DiscoveryRecord {
   };
 }
 
+function errorRecord(unit: DiscoveryUnit, reason: string): DiscoveryRecord {
+  return {
+    ...reviewedRecord(unit),
+    status: "error",
+    reason,
+  };
+}
+
+function clipReason(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return "Provider request failed.";
+  }
+  return trimmed.length > 2000 ? trimmed.slice(0, 2000) : trimmed;
+}
+
 function dedupeSites(sites: readonly DiscoveredSite[]): DiscoveredSite[] {
   const seen = new Set<string>();
   const kept: DiscoveredSite[] = [];
@@ -344,11 +369,54 @@ export async function discoverSites(request: DiscoveryRequest): Promise<Discover
   });
   const reviewed = ordered.slice(0, budget);
   const deferred = ordered.slice(budget);
+  const stop = { message: undefined as string | undefined };
+  const outcomes = await mapLimit(reviewed, CODEX_MAX_CONCURRENCY, async (unit) => {
+    if (stop.message !== undefined) {
+      return {
+        sites: [] as DiscoveredSite[],
+        record: errorRecord(unit, clipReason(`${PROVIDER_LIMIT_STOP} ${stop.message}`)),
+      };
+    }
+    const rawWindow = linesOf(unit.text)
+      .slice(unit.startLine - 1, unit.endLine)
+      .join("\n");
+    const shown = redactSecretsFrom(rawWindow, [unit.text]);
+    try {
+      const text = await request.provider.complete({
+        messages: buildDiscoveryPrompt(unit, shown),
+      });
+      const parsed = parseDiscoveryResponse(text);
+      const grounded = groundDiscoverySites(
+        parsed,
+        unit.path,
+        unit.text,
+        unit.startLine,
+        unit.endLine,
+        shown,
+      );
+      return {
+        sites: grounded.map((site) => ({
+          ...site,
+          reason: redactSecretsFrom(site.reason, [unit.text]),
+        })),
+        record: reviewedRecord(unit),
+      };
+    } catch (error) {
+      if (!isProviderFailure(error) || isProviderSetupError(error)) {
+        throw error;
+      }
+      const reason = clipReason(redactSecretsFrom(providerFailureMessage(error), [unit.text]));
+      if (isUsageOrRateLimit(error) && stop.message === undefined) {
+        stop.message = reason;
+      }
+      return { sites: [] as DiscoveredSite[], record: errorRecord(unit, reason) };
+    }
+  });
   const seenRecords = new Set<string>();
   const records: DiscoveryRecord[] = [];
   for (const record of [
     ...selected.skipped,
-    ...reviewed.map((unit) => reviewedRecord(unit)),
+    ...outcomes.map((outcome) => outcome.record),
     ...deferred.map((unit) => budgetRecord(unit)),
   ]) {
     if (seenRecords.has(record.id)) {
@@ -357,27 +425,9 @@ export async function discoverSites(request: DiscoveryRequest): Promise<Discover
     seenRecords.add(record.id);
     records.push(record);
   }
-  const found = await mapLimit(reviewed, CODEX_MAX_CONCURRENCY, async (unit) => {
-    const rawWindow = linesOf(unit.text)
-      .slice(unit.startLine - 1, unit.endLine)
-      .join("\n");
-    const shown = redactSecretsFrom(rawWindow, [unit.text]);
-    const text = await request.provider.complete({
-      messages: buildDiscoveryPrompt(unit, shown),
-    });
-    const parsed = parseDiscoveryResponse(text);
-    const grounded = groundDiscoverySites(
-      parsed,
-      unit.path,
-      unit.text,
-      unit.startLine,
-      unit.endLine,
-      shown,
-    );
-    return grounded.map((site) => ({
-      ...site,
-      reason: redactSecretsFrom(site.reason, [unit.text]),
-    }));
-  });
-  return { sites: dedupeSites(found.flat()), records };
+  return {
+    sites: dedupeSites(outcomes.flatMap((outcome) => outcome.sites)),
+    records,
+    ...(stop.message === undefined ? {} : { halted: stop.message }),
+  };
 }

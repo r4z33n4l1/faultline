@@ -140,6 +140,46 @@ export function redactSensitive(text: string, secret: string | undefined): strin
  * Redact credential-shaped text from errors. Used when a subprocess might
  * echo a token that Faultline never intended to read.
  */
+/** Prefix recorded when a usage or rate limit stops later model calls. */
+export const PROVIDER_LIMIT_STOP = "Stopped after a provider usage or rate limit.";
+
+const USAGE_OR_RATE_LIMIT =
+  /usage limit|rate limit|too many requests|quota exceeded|insufficient[_\s-]?quota|\b429\b/i;
+
+/** Transport and provider failures. A malformed model reply is not one of these. */
+export function isProviderFailure(error: unknown): error is ProviderError {
+  return error instanceof ProviderError;
+}
+
+/**
+ * The provider was never configured. These still abort the process with their
+ * own message, before a run file is written.
+ */
+export function isProviderSetupError(error: ProviderError): boolean {
+  return (
+    error.code === "cli" || error.code === "missing_api_key" || error.code === "unknown_provider"
+  );
+}
+
+/** Usage and rate limits should stop the rest of the run instead of burning more calls. */
+export function isUsageOrRateLimit(error: unknown): boolean {
+  if (!(error instanceof ProviderError)) {
+    return false;
+  }
+  if (error instanceof ProviderHttpError && error.status === 429) {
+    return true;
+  }
+  return USAGE_OR_RATE_LIMIT.test(error.message);
+}
+
+/** Provider message safe to store. Token-shaped text is redacted. */
+export function providerFailureMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const redacted = redactTokenLike(message).replace(/\s+/g, " ").trim();
+  const text = redacted.length === 0 ? "Provider request failed." : redacted;
+  return text.length > 2000 ? text.slice(0, 2000) : text;
+}
+
 export function redactTokenLike(text: string): string {
   const patterns = [
     /Bearer\s+\S+/gi,

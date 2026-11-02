@@ -182,6 +182,7 @@ it("renders n/a when a rate is undefined and states that the table is not a prod
       provider: null,
       model: null,
       commit: null,
+      provider_error_count: 0,
     },
     counts: { truth: 1, vulnerable: 1, safe: 0, detections: 1, unmatched: 0 },
     overall: scored.overall,

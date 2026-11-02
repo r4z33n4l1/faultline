@@ -20,6 +20,10 @@ export interface PipelineInput {
   startedAt?: Date;
   runId?: string;
   findings?: readonly Finding[];
+  /** Provider or transport failures recorded for this run. */
+  providerErrorCount?: number;
+  /** First provider failure message, already secret-redacted. */
+  providerError?: string;
 }
 
 export async function provenanceFor(
@@ -43,6 +47,10 @@ export function runPipeline(input: PipelineInput): FindingsFile {
     provider: input.provider?.name ?? null,
     model: input.model ?? input.provider?.model ?? null,
     commit: input.commit ?? null,
+    provider_error_count: input.providerErrorCount ?? 0,
+    ...(input.providerError === undefined || input.providerError.length === 0
+      ? {}
+      : { provider_error: input.providerError }),
   };
 
   return findingsFileSchema.parse({

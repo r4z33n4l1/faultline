@@ -6,6 +6,7 @@ import {
   type FindingClass,
   type FindingsFile,
   type InconclusiveEntry,
+  type ProviderErrorEntry,
   type Severity,
 } from "./schema/finding.js";
 
@@ -92,6 +93,7 @@ export interface ReportOptions {
   unvalidatedCandidates?: number;
   disproved?: readonly DisprovedEntry[];
   inconclusive?: readonly InconclusiveEntry[];
+  errors?: readonly ProviderErrorEntry[];
   /** Set for a PR-scoped run, including when the diff changes no files. */
   changedFiles?: readonly string[];
   /** Lines of context used for hunk overlap. Reported only when `changedFiles` is set. */
@@ -156,6 +158,12 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
     lines.push(`- ${severity}: ${counts.get(severity) ?? 0}`);
   }
   lines.push("", `${findingCount(confirmed.length)}.`);
+  if (file.run.provider_error_count !== undefined) {
+    lines.push(`Provider errors: ${file.run.provider_error_count}.`);
+  }
+  if (file.run.provider_error !== undefined) {
+    lines.push(file.run.provider_error);
+  }
   if (keptInconclusive.length > 0) {
     const noun = keptInconclusive.length === 1 ? "finding" : "findings";
     lines.push(
@@ -187,6 +195,7 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
   }
   const disproved = options.disproved ?? file.disproved ?? [];
   const inconclusive = options.inconclusive ?? file.inconclusive ?? [];
+  const providerErrors = options.errors ?? file.errors ?? [];
   if (disproved.length > 0) {
     lines.push("", "## Disproved candidates", "");
     for (const item of disproved) {
@@ -198,6 +207,13 @@ export function renderReport(file: FindingsFile, options: ReportOptions = {}): s
     lines.push("", "## Inconclusive candidates", "");
     for (const item of inconclusive) {
       lines.push(reviewLine(item, item.kept ? ", kept" : ""));
+    }
+    lines.push("");
+  }
+  if (providerErrors.length > 0) {
+    lines.push("", "## Provider errors", "");
+    for (const item of providerErrors) {
+      lines.push(reviewLine(item));
     }
     lines.push("");
   }

@@ -118,6 +118,15 @@ function discoveryBudgetFrom(value: string | undefined): number | undefined {
   return parsePositiveInt("--discovery-budget", value);
 }
 
+function exitForProviderErrors(count: number, io: CliIo): number {
+  if (count === 0) {
+    return 0;
+  }
+  const noun = count === 1 ? "provider error" : "provider errors";
+  io.stderr(`${count} ${noun}. The run failed. See findings.json, report.md, and coverage.json.\n`);
+  return 1;
+}
+
 function messageOf(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -255,7 +264,7 @@ async function runScan(
     return 1;
   }
   try {
-    await executeScan({
+    const scan = await executeScan({
       target,
       cwd,
       outDir,
@@ -266,12 +275,12 @@ async function runScan(
       ...(maxSites === undefined ? {} : { maxSites }),
       ...(discoveryBudget === undefined ? {} : { discoveryBudget }),
     });
+    io.stdout(wroteLine(outDir, RUN_OUTPUTS));
+    return exitForProviderErrors(scan.providerErrors, io);
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(wroteLine(outDir, RUN_OUTPUTS));
-  return 0;
 }
 
 function isBenchStage(value: string): value is BenchStage {
@@ -388,7 +397,7 @@ async function runCorpus(
     ...(config.model === undefined ? {} : { model: config.model }),
   });
   try {
-    await executeBench({
+    const result = await executeBench({
       target: paths.targetLabel,
       cwd,
       outDir,
@@ -401,12 +410,12 @@ async function runCorpus(
       ...(discoveryBudget === undefined ? {} : { discoveryBudget }),
       ...(provider === undefined ? {} : { provider }),
     });
+    io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
+    return exitForProviderErrors(result.run.provider_error_count, io);
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
-  return 0;
 }
 
 async function runBench(
@@ -444,7 +453,7 @@ async function runBench(
   });
   const truthPath = truthFlag ?? join(target, "truth.json");
   try {
-    await executeBench({
+    const result = await executeBench({
       target,
       cwd,
       outDir,
@@ -457,12 +466,12 @@ async function runBench(
       ...(discoveryBudget === undefined ? {} : { discoveryBudget }),
       ...(provider === undefined ? {} : { provider }),
     });
+    io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
+    return exitForProviderErrors(result.run.provider_error_count, io);
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(wroteLine(outDir, ["bench-result.json", "bench-result.md"]));
-  return 0;
 }
 
 async function runPr(
@@ -526,7 +535,7 @@ async function runPr(
     return 1;
   }
   try {
-    await executePr({
+    const pr = await executePr({
       diffLabel: source,
       repo: repoRoot,
       repoLabel: repo,
@@ -540,12 +549,12 @@ async function runPr(
       ...(maxSites === undefined ? {} : { maxSites }),
       ...(discoveryBudget === undefined ? {} : { discoveryBudget }),
     });
+    io.stdout(wroteLine(outDir, RUN_OUTPUTS));
+    return exitForProviderErrors(pr.providerErrors, io);
   } catch (error) {
     io.stderr(`${messageOf(error)}\n`);
     return 1;
   }
-  io.stdout(wroteLine(outDir, RUN_OUTPUTS));
-  return 0;
 }
 
 export async function runCli(argv: string[], io: CliIo = defaultIo): Promise<number> {

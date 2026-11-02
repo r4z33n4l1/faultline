@@ -1,14 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { discoverSites } from "../discovery/run.js";
+import { discoverSites, type DiscoveryResult } from "../discovery/run.js";
 import { resolveDiscoveryBudget } from "../discovery/types.js";
 import { runHunters } from "../recon/run.js";
 import { writeRunOutput } from "../output.js";
 import { provenanceFor, runPipeline } from "../pipeline.js";
-import { disprovedEntries, inconclusiveEntries, validateCandidates } from "../validator/index.js";
+import {
+  disprovedEntries,
+  inconclusiveEntries,
+  providerErrorEntries,
+  validateCandidates,
+  type ValidationResult,
+} from "../validator/index.js";
+import {
+  isProviderFailure,
+  isProviderSetupError,
+  providerFailureMessage,
+} from "../providers/errors.js";
 import type { ModelProvider } from "../providers/types.js";
-import { renderArchitecture } from "../recon/architecture.js";
+import { renderArchitecture, renderInventoryArchitecture } from "../recon/architecture.js";
 import {
   applyCoverageMarks,
   applyDiscoveryRecords,
@@ -55,7 +66,15 @@ export interface PrRequest {
   runId?: string;
 }
 
-export async function executePr(request: PrRequest): Promise<void> {
+export interface PrResult {
+  providerErrors: number;
+}
+
+function emptyValidation(): ValidationResult {
+  return { findings: [], disproved: [], inconclusive: [], errors: [] };
+}
+
+export async function executePr(request: PrRequest): Promise<PrResult> {
   const inventory = await collectInventory(request.repo, {
     target: request.repoLabel,
     limits: request.inventory?.limits,
@@ -63,23 +82,40 @@ export async function executePr(request: PrRequest): Promise<void> {
     exclude: request.inventory?.exclude,
   });
   const changed = request.parsed.files;
+  let architectureHalt: string | undefined;
+  let architectureBody: string;
+  try {
+    architectureBody = await renderArchitecture(inventory, request.provider);
+  } catch (error) {
+    if (
+      request.provider === undefined ||
+      !isProviderFailure(error) ||
+      isProviderSetupError(error)
+    ) {
+      throw error;
+    }
+    architectureHalt = providerFailureMessage(error);
+    architectureBody = `${renderInventoryArchitecture(inventory).trimEnd()}\n\nProvider error: ${architectureHalt}\n`;
+  }
   const architecture = markChangedFiles(
-    await renderArchitecture(inventory, request.provider),
+    architectureBody,
     changed.map((file) => file.path),
   );
   const startedAt = request.startedAt ?? new Date();
   const runId = request.runId ?? randomUUID();
   const marks = new Map<string, CoverageMark>();
   const scoped = scopeInventory(inventory, new Set(changed.map((file) => file.path)));
-  const discovered =
-    request.provider === undefined
+  const model = architectureHalt === undefined ? request.provider : undefined;
+  const discovered: DiscoveryResult =
+    model === undefined
       ? { sites: [], records: [] }
       : await discoverSites({
           root: request.repo,
           inventory: scoped,
-          provider: request.provider,
+          provider: model,
           budget: resolveDiscoveryBudget(request.discoveryBudget),
         });
+  const halted = architectureHalt ?? discovered.halted;
   const ctx: HunterContext = {
     root: request.repo,
     target: request.repoLabel,
@@ -90,10 +126,22 @@ export async function executePr(request: PrRequest): Promise<void> {
       marks.set(unitId, { status, reason });
     },
   };
-  if (request.provider !== undefined) {
-    ctx.provider = request.provider;
+  if (model !== undefined && halted === undefined) {
+    ctx.provider = model;
   }
-  const found = await runHunters(ctx);
+  let huntHalt: string | undefined;
+  let found: Awaited<ReturnType<typeof runHunters>> = [];
+  if (halted === undefined) {
+    try {
+      found = await runHunters(ctx);
+    } catch (error) {
+      if (!isProviderFailure(error) || isProviderSetupError(error)) {
+        throw error;
+      }
+      huntHalt = providerFailureMessage(error);
+    }
+  }
+  const stop = halted ?? huntHalt;
   const candidates = found.filter((candidate) =>
     candidateOverlapsDiff(candidate, changed, request.context),
   );
@@ -107,13 +155,23 @@ export async function executePr(request: PrRequest): Promise<void> {
   );
   const validation =
     request.validate === false
-      ? { findings: [], disproved: [], inconclusive: [] }
+      ? emptyValidation()
       : await validateCandidates(candidates, {
           root: request.repo,
-          provider: request.provider,
+          ...(model === undefined || stop !== undefined ? {} : { provider: model }),
+          ...(stop === undefined ? {} : { providerHalt: stop }),
           inventory,
           keepInconclusive: request.keepInconclusive === true,
         });
+  const discoveryErrors = discovered.records.filter((record) => record.status === "error").length;
+  let providerErrors = discoveryErrors + validation.errors.length;
+  if (stop !== undefined && providerErrors === 0) {
+    providerErrors = 1;
+  }
+  const providerError =
+    validation.errors[0]?.reason ??
+    discovered.records.find((record) => record.status === "error")?.reason ??
+    stop;
   const provenance = await provenanceFor(request.provider);
   const findings = runPipeline({
     mode: "pr",
@@ -124,12 +182,15 @@ export async function executePr(request: PrRequest): Promise<void> {
     startedAt,
     runId,
     findings: validation.findings,
+    providerErrorCount: providerErrors,
+    ...(providerError === undefined ? {} : { providerError }),
   });
   await writeRunOutput(request.outDir, findings, {
     scanRoot: request.repo,
     unvalidatedCandidates: request.validate === false ? candidates.length : 0,
     disproved: disprovedEntries(validation.disproved),
     inconclusive: inconclusiveEntries(validation.inconclusive),
+    errors: providerErrorEntries(validation.errors),
     changedFiles: changed.map((file) => file.path),
     hunkContext: request.context,
     inventoryNote: inventoryCapNote(inventory),
@@ -146,6 +207,7 @@ export async function executePr(request: PrRequest): Promise<void> {
     }),
     "utf8",
   );
+  return { providerErrors };
 }
 
 /** Recon still covers the repository. Hunters only see files the diff changed. */
@@ -193,10 +255,10 @@ export function applyOutsideDiff(
       return unit;
     }),
     discovery: coverage.discovery.map((record) => {
-      if (!byPath.has(record.path)) {
-        return { ...record, status: "skipped" as const, reason: OUTSIDE_DIFF_REASON };
+      if (record.status === "error" || byPath.has(record.path)) {
+        return record;
       }
-      return record;
+      return { ...record, status: "skipped" as const, reason: OUTSIDE_DIFF_REASON };
     }),
   });
 }

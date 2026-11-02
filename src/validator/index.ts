@@ -4,6 +4,12 @@ import { groundCandidates } from "../hunters/ground.js";
 import { redactSecretsFrom } from "../hunters/secrets.js";
 import { HUNTER_SITE_MAX_CHARS, HUNTER_SITE_MAX_LINES, stripComments } from "../hunters/shared.js";
 import { normalizeRepoPath, readSourceFile } from "../hunters/source.js";
+import {
+  isProviderFailure,
+  isUsageOrRateLimit,
+  PROVIDER_LIMIT_STOP,
+  providerFailureMessage,
+} from "../providers/errors.js";
 import type { ModelProvider } from "../providers/types.js";
 import { fenceData } from "../recon/architecture.js";
 import type { Candidate } from "../schema/candidate.js";
@@ -11,9 +17,11 @@ import {
   disprovedEntrySchema,
   findingSchema,
   inconclusiveEntrySchema,
+  providerErrorEntrySchema,
   type DisprovedEntry,
   type Finding,
   type InconclusiveEntry,
+  type ProviderErrorEntry,
 } from "../schema/finding.js";
 import { buildContextPack, renderContextPayload, type ValidatorInventory } from "./context.js";
 
@@ -46,10 +54,17 @@ export interface InconclusiveCandidate {
   kept: boolean;
 }
 
+/** The provider failed before a verdict existed. Never promoted or scored as inconclusive. */
+export interface ProviderErrorCandidate {
+  candidate: Candidate;
+  reason: string;
+}
+
 export interface ValidationResult {
   findings: Finding[];
   disproved: RejectedCandidate[];
   inconclusive: InconclusiveCandidate[];
+  errors: ProviderErrorCandidate[];
 }
 
 export interface ValidateOptions {
@@ -59,6 +74,11 @@ export interface ValidateOptions {
   inventory?: ValidatorInventory;
   /** Promote inconclusive candidates to low-confidence findings. Default off. */
   keepInconclusive?: boolean;
+  /**
+   * When set, every candidate is recorded as a provider error and the model is not called.
+   * Used after a usage or rate limit already stopped discovery.
+   */
+  providerHalt?: string;
 }
 
 type Verdict = z.infer<typeof verdictSchema>;
@@ -118,6 +138,17 @@ export function inconclusiveEntries(items: readonly InconclusiveCandidate[]): In
   );
 }
 
+export function providerErrorEntries(
+  items: readonly ProviderErrorCandidate[],
+): ProviderErrorEntry[] {
+  return items.map((item) =>
+    providerErrorEntrySchema.parse({
+      ...entryFrom(item.candidate, item.reason),
+      status: "error",
+    }),
+  );
+}
+
 function guardGrounds(guard: Verdict["guard"], files: ReadonlyMap<string, string>): boolean {
   if (guard === undefined) {
     return false;
@@ -160,7 +191,8 @@ export async function validateCandidates(
   candidates: readonly Candidate[],
   options: ValidateOptions,
 ): Promise<ValidationResult> {
-  const result: ValidationResult = { findings: [], disproved: [], inconclusive: [] };
+  const result: ValidationResult = { findings: [], disproved: [], inconclusive: [], errors: [] };
+  let halt = options.providerHalt;
   const files = new Map<string, string>();
   const seen = new Set<string>();
   async function hydrate(paths: readonly string[]): Promise<void> {
@@ -221,6 +253,14 @@ export async function validateCandidates(
         }),
       );
     };
+    if (halt !== undefined) {
+      const reason =
+        halt === options.providerHalt
+          ? clip(redact(halt))
+          : clip(redact(`${PROVIDER_LIMIT_STOP} ${halt}`));
+      result.errors.push({ candidate, reason });
+      continue;
+    }
     if (index >= VALIDATOR_CANDIDATE_CAP) {
       inconclusive("Validator candidate cap reached.");
       continue;
@@ -313,8 +353,18 @@ export async function validateCandidates(
               }
             }
           }
-        } catch {
-          /* Unusable replies cannot confirm. */
+        } catch (error) {
+          if (!isProviderFailure(error)) {
+            verdict = undefined;
+          } else {
+            const reason = clip(redact(providerFailureMessage(error)));
+            result.errors.push({ candidate, reason });
+            if (isUsageOrRateLimit(error)) {
+              halt = reason;
+            }
+            confirmed = false;
+            break;
+          }
         }
         if (verdict?.verdict !== "confirmed") {
           const summary = verdict?.summary ?? "Malformed reply or ungrounded evidence.";
