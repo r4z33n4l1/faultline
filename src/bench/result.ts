@@ -71,6 +71,7 @@ export const benchResultSchema = z.strictObject({
       .string()
       .regex(/^[0-9a-f]{40}$/)
       .nullable(),
+    provider_error_count: count,
   }),
   counts: z.strictObject({
     truth: count,

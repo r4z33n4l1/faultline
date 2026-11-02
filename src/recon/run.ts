@@ -7,14 +7,25 @@ import {
   type DiscoveredSite,
   type DiscoveryRecord,
 } from "../discovery/types.js";
+import {
+  isProviderFailure,
+  isProviderSetupError,
+  providerFailureMessage,
+} from "../providers/errors.js";
 import type { ModelProvider } from "../providers/types.js";
 import { hunters } from "../hunters/registry.js";
 import type { HunterContext } from "../hunters/types.js";
 import { writeRunOutput } from "../output.js";
 import { provenanceFor, runPipeline } from "../pipeline.js";
-import { disprovedEntries, inconclusiveEntries, validateCandidates } from "../validator/index.js";
+import {
+  disprovedEntries,
+  inconclusiveEntries,
+  providerErrorEntries,
+  validateCandidates,
+  type ValidationResult,
+} from "../validator/index.js";
 import { serializeCandidates, type Candidate } from "../schema/candidate.js";
-import { renderArchitecture } from "./architecture.js";
+import { renderArchitecture, renderInventoryArchitecture } from "./architecture.js";
 import {
   applyCoverageMarks,
   applyDiscoveryRecords,
@@ -52,7 +63,7 @@ async function discoverForProvider(
   inventory: Inventory,
   provider: ModelProvider | undefined,
   budget: number | undefined,
-): Promise<{ sites: DiscoveredSite[]; records: DiscoveryRecord[] }> {
+): Promise<{ sites: DiscoveredSite[]; records: DiscoveryRecord[]; halted?: string }> {
   if (provider === undefined) {
     return { sites: [], records: [] };
   }
@@ -77,7 +88,15 @@ export async function runHunters(ctx: HunterContext): Promise<Candidate[]> {
   return candidates;
 }
 
-export async function executeScan(request: ScanRequest): Promise<void> {
+export interface ScanResult {
+  providerErrors: number;
+}
+
+function emptyValidation(): ValidationResult {
+  return { findings: [], disproved: [], inconclusive: [], errors: [] };
+}
+
+export async function executeScan(request: ScanRequest): Promise<ScanResult> {
   const abs = resolve(request.cwd, request.target);
   const inventory = await collectInventory(abs, {
     target: request.target,
@@ -85,16 +104,27 @@ export async function executeScan(request: ScanRequest): Promise<void> {
     include: request.inventory?.include,
     exclude: request.inventory?.exclude,
   });
-  const architecture = await renderArchitecture(inventory, request.provider);
+  let architectureHalt: string | undefined;
+  let architecture: string;
+  try {
+    architecture = await renderArchitecture(inventory, request.provider);
+  } catch (error) {
+    if (
+      request.provider === undefined ||
+      !isProviderFailure(error) ||
+      isProviderSetupError(error)
+    ) {
+      throw error;
+    }
+    architectureHalt = providerFailureMessage(error);
+    architecture = `${renderInventoryArchitecture(inventory).trimEnd()}\n\nProvider error: ${architectureHalt}\n`;
+  }
   const startedAt = request.startedAt ?? new Date();
   const runId = request.runId ?? randomUUID();
   const marks = new Map<string, CoverageMark>();
-  const discovered = await discoverForProvider(
-    abs,
-    inventory,
-    request.provider,
-    request.discoveryBudget,
-  );
+  const model = architectureHalt === undefined ? request.provider : undefined;
+  const discovered = await discoverForProvider(abs, inventory, model, request.discoveryBudget);
+  const halted = architectureHalt ?? discovered.halted;
   const ctx: HunterContext = {
     root: abs,
     target: request.target,
@@ -105,23 +135,45 @@ export async function executeScan(request: ScanRequest): Promise<void> {
       marks.set(unitId, { status, reason });
     },
   };
-  if (request.provider !== undefined) {
-    ctx.provider = request.provider;
+  if (model !== undefined && halted === undefined) {
+    ctx.provider = model;
   }
-  const candidates = await runHunters(ctx);
+  let huntHalt: string | undefined;
+  let candidates: Candidate[] = [];
+  if (halted === undefined) {
+    try {
+      candidates = await runHunters(ctx);
+    } catch (error) {
+      if (!isProviderFailure(error) || isProviderSetupError(error)) {
+        throw error;
+      }
+      huntHalt = providerFailureMessage(error);
+    }
+  }
+  const stop = halted ?? huntHalt;
   const coverage = applyDiscoveryRecords(
     applyCoverageMarks(buildCoverage(request.target, inventory), marks),
     discovered.records,
   );
   const validation =
     request.validate === false
-      ? { findings: [], disproved: [], inconclusive: [] }
+      ? emptyValidation()
       : await validateCandidates(candidates, {
           root: abs,
-          provider: request.provider,
+          ...(model === undefined || stop !== undefined ? {} : { provider: model }),
+          ...(stop === undefined ? {} : { providerHalt: stop }),
           inventory,
           keepInconclusive: request.keepInconclusive === true,
         });
+  const discoveryErrors = discovered.records.filter((record) => record.status === "error").length;
+  let providerErrors = discoveryErrors + validation.errors.length;
+  if (stop !== undefined && providerErrors === 0) {
+    providerErrors = 1;
+  }
+  const providerError =
+    validation.errors[0]?.reason ??
+    discovered.records.find((record) => record.status === "error")?.reason ??
+    stop;
   const provenance = await provenanceFor(request.provider);
   const findings = runPipeline({
     mode: "scan",
@@ -132,12 +184,15 @@ export async function executeScan(request: ScanRequest): Promise<void> {
     startedAt,
     runId,
     findings: validation.findings,
+    providerErrorCount: providerErrors,
+    ...(providerError === undefined ? {} : { providerError }),
   });
   await writeRunOutput(request.outDir, findings, {
     scanRoot: abs,
     unvalidatedCandidates: request.validate === false ? candidates.length : 0,
     disproved: disprovedEntries(validation.disproved),
     inconclusive: inconclusiveEntries(validation.inconclusive),
+    errors: providerErrorEntries(validation.errors),
     inventoryNote: inventoryCapNote(inventory),
   });
   await writeFile(join(request.outDir, "architecture.md"), architecture, "utf8");
@@ -152,4 +207,5 @@ export async function executeScan(request: ScanRequest): Promise<void> {
     }),
     "utf8",
   );
+  return { providerErrors };
 }

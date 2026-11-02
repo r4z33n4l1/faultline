@@ -17,7 +17,7 @@ pnpm exec faultline bench bench/seeded-app --stage findings --out ./faultline-be
 
 Real model runs are manual. They spend your own API key. Do not set `FAULTLINE_PROVIDER` in CI. The tests call the command with an empty environment or with `FakeProvider`, and they do not open a socket.
 
-The command exits 0 after it writes a score, including a low score. It exits 1 when the target or truth file cannot be read, a label's line range falls outside its file, or the scan fails.
+The command exits 0 after it writes a score, including a low score. It exits 1 when the target or truth file cannot be read, a label's line range falls outside its file, the scan fails, or `provider_error_count` is greater than zero. That count is on the bench run. Provider failures are not detections and are not inconclusive findings. A usage or rate limit stops later model calls.
 
 ## Corpus
 

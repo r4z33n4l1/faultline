@@ -259,7 +259,7 @@ function regionFor(location: Finding["location"]): { startLine: number; endLine?
   return { startLine: location.start_line, endLine: location.end_line };
 }
 
-/** Confirmed findings to a SARIF log. Inconclusive promotions stay in findings.json. */
+/** Confirmed findings to a SARIF log. Inconclusive promotions and provider errors stay in findings.json. */
 export function toSarif(file: FindingsFile, scanRoot: string): SarifLog {
   const rules: z.infer<typeof ruleSchema>[] = [];
   const seen = new Set<string>();

@@ -192,7 +192,8 @@
             "type": "string",
             "enum": [
               "reviewed",
-              "skipped"
+              "skipped",
+              "error"
             ]
           },
           "reason": {

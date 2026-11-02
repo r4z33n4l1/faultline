@@ -8,6 +8,7 @@ import {
   type Finding,
   type FindingsFile,
   type InconclusiveEntry,
+  type ProviderErrorEntry,
 } from "./schema/finding.js";
 import { renderReport } from "./report.js";
 import { serializeSarif, toSarif } from "./sarif.js";
@@ -19,6 +20,7 @@ export interface FindingsDraft {
   findings: readonly unknown[];
   disproved?: readonly DisprovedEntry[];
   inconclusive?: readonly InconclusiveEntry[];
+  errors?: readonly ProviderErrorEntry[];
 }
 
 function verdictOf(value: unknown): unknown {
@@ -56,6 +58,7 @@ export interface WriteRunOptions {
   unvalidatedCandidates?: number;
   disproved?: readonly DisprovedEntry[];
   inconclusive?: readonly InconclusiveEntry[];
+  errors?: readonly ProviderErrorEntry[];
   /** Set for a PR-scoped run. Lists repo-relative changed files. An empty list is still PR-scoped. */
   changedFiles?: readonly string[];
   /** Context window recorded in a PR-scoped report. */
@@ -74,6 +77,7 @@ export async function writeRunOutput(
     findings: gateFindings(draft.findings),
     disproved: options.disproved ?? draft.disproved ?? [],
     inconclusive: options.inconclusive ?? draft.inconclusive ?? [],
+    errors: options.errors ?? draft.errors ?? [],
   });
   const scanRoot = options.scanRoot ?? process.cwd();
   const findingsText = serializeFindings(file);

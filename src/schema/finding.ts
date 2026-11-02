@@ -80,6 +80,10 @@ export const runSchema = z.strictObject({
     .regex(/^[0-9a-f]{40}$/)
     .nullable()
     .optional(),
+  /** Provider or transport failures. Greater than zero means the run failed. */
+  provider_error_count: z.number().int().nonnegative().optional(),
+  /** First provider failure message, secret-redacted. */
+  provider_error: nonEmpty.optional(),
 });
 
 export const disprovedEntrySchema = z.strictObject({
@@ -95,6 +99,11 @@ export const inconclusiveEntrySchema = disprovedEntrySchema.extend({
   kept: z.boolean(),
 });
 
+/** A candidate the provider never reviewed. Not an inconclusive verdict. */
+export const providerErrorEntrySchema = disprovedEntrySchema.extend({
+  status: z.literal("error"),
+});
+
 export const findingsFileSchema = z.strictObject({
   schema_version: z.literal(SCHEMA_VERSION),
   tool: z.strictObject({
@@ -105,12 +114,14 @@ export const findingsFileSchema = z.strictObject({
   findings: z.array(findingSchema),
   disproved: z.array(disprovedEntrySchema).optional(),
   inconclusive: z.array(inconclusiveEntrySchema).optional(),
+  errors: z.array(providerErrorEntrySchema).optional(),
 });
 
 export type Finding = z.infer<typeof findingSchema>;
 export type FindingsFile = z.infer<typeof findingsFileSchema>;
 export type DisprovedEntry = z.infer<typeof disprovedEntrySchema>;
 export type InconclusiveEntry = z.infer<typeof inconclusiveEntrySchema>;
+export type ProviderErrorEntry = z.infer<typeof providerErrorEntrySchema>;
 export type Severity = (typeof SEVERITIES)[number];
 export type FindingClass = (typeof FINDING_CLASSES)[number];
 

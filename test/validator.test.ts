@@ -10,6 +10,12 @@ import { executePr } from "../src/pr/run.js";
 import { parseUnifiedDiff } from "../src/pr/diff.js";
 import { sarifLogSchema } from "../src/sarif.js";
 import { findingsFileSchema } from "../src/schema/finding.js";
+import {
+  PROVIDER_LIMIT_STOP,
+  ProviderHttpError,
+  ProviderRequestError,
+  ProviderTimeoutError,
+} from "../src/providers/errors.js";
 import { FakeProvider } from "../src/providers/types.js";
 import type { Candidate } from "../src/schema/candidate.js";
 import { findingSchema } from "../src/schema/finding.js";
@@ -96,6 +102,7 @@ it.each([
   expect(result.findings).toEqual([]);
   expect(result.disproved).toEqual([]);
   expect(result.inconclusive[0]?.reason).toBe("Malformed reply or ungrounded evidence.");
+  expect(result.errors).toEqual([]);
 });
 it("heuristically promotes medium confidence, drops low confidence, and deduplicates root causes", async () => {
   const { root, candidate } = await fixture();
@@ -626,4 +633,160 @@ it("splits disproved and inconclusive in the report and keeps them out of SARIF"
     JSON.parse(await readFile(join(keptDir, "findings.sarif"), "utf8")) as unknown,
   );
   expect(sarif.runs[0].results).toEqual([]);
+});
+
+it("records a throwing provider as an error and does not promote it", async () => {
+  const { root, candidate } = await fixture();
+  const secret = `ghp_${"a".repeat(20)}`;
+  const failure = new ProviderRequestError(
+    "codex",
+    `codex exec exited with status 1: You've hit your usage limit. ${secret}`,
+  );
+  const list = [candidate, { ...candidate, symbol: "other" }, { ...candidate, symbol: "third" }];
+  for (const keepInconclusive of [false, true]) {
+    const provider = new FakeProvider(() => {
+      throw failure;
+    });
+    const result = await validateCandidates(list, { root, provider, keepInconclusive });
+    expect(result.findings).toEqual([]);
+    expect(result.inconclusive).toEqual([]);
+    expect(result.disproved).toEqual([]);
+    expect(result.errors).toHaveLength(3);
+    expect(result.errors[0]?.reason).toContain("usage limit");
+    expect(result.errors[1]?.reason).toContain(PROVIDER_LIMIT_STOP);
+    expect(result.errors[2]?.reason).toContain(PROVIDER_LIMIT_STOP);
+    expect(JSON.stringify(result)).not.toContain(secret);
+    expect(provider.calls).toHaveLength(1);
+  }
+
+  const limited = new FakeProvider(() => {
+    throw new ProviderHttpError("openai", 429, "Too many requests");
+  });
+  const limitedResult = await validateCandidates([candidate, { ...candidate, symbol: "other" }], {
+    root,
+    provider: limited,
+    keepInconclusive: true,
+  });
+  expect(limitedResult.findings).toEqual([]);
+  expect(limitedResult.inconclusive).toEqual([]);
+  expect(limitedResult.errors).toHaveLength(2);
+  expect(limited.calls).toHaveLength(1);
+
+  let calls = 0;
+  const timeout = new FakeProvider(() => {
+    calls += 1;
+    if (calls === 1) {
+      throw new ProviderTimeoutError("codex", 1000);
+    }
+    return reply();
+  });
+  const continued = await validateCandidates([candidate, { ...candidate, root_cause: "Again" }], {
+    root,
+    provider: timeout,
+  });
+  expect(continued.errors).toHaveLength(1);
+  expect(continued.errors[0]?.reason).toContain("timed out");
+  expect(continued.inconclusive).toEqual([]);
+  expect(continued.findings).toHaveLength(1);
+  expect(timeout.calls).toHaveLength(3);
+});
+
+it("exits non-zero for scan, pr, and bench when the validator's provider fails", async () => {
+  const { root, candidate } = await fixture(
+    'app.get("/items/:id", (req, res) => { const item = prisma.item.findUnique({ where: { id: req.params.id } }); res.json(item); });',
+  );
+  candidate.class = "authz_idor";
+  candidate.cwe = "CWE-639";
+  candidate.symbol = "app.get";
+  const secret = `ghp_${"b".repeat(20)}`;
+  const provider = new FakeProvider((input) => {
+    if (input.jsonSchema !== undefined) {
+      throw new ProviderRequestError(
+        "codex",
+        `codex exec exited with status 1: You've hit your usage limit. ${secret}`,
+      );
+    }
+    if (input.messages[0]?.content.includes("authz_idor")) {
+      return JSON.stringify({ candidates: [candidate] });
+    }
+    return "";
+  });
+  const diff =
+    "diff --git a/app.ts b/app.ts\n--- a/app.ts\n+++ b/app.ts\n@@ -1 +1 @@\n-old\n+new\n";
+  const io = {
+    cwd: root,
+    env: {},
+    provider,
+    stdout() {},
+    stderr() {},
+    stdin: diff,
+  };
+  const scanOut = join(root, "scan-out");
+  expect(await runCli(["scan", root, "--out", scanOut, "--keep-inconclusive"], io)).toBe(1);
+  const file = findingsFileSchema.parse(
+    JSON.parse(await readFile(join(scanOut, "findings.json"), "utf8")) as unknown,
+  );
+  expect(file.findings).toEqual([]);
+  expect(file.inconclusive).toEqual([]);
+  expect(file.errors?.length).toBeGreaterThan(0);
+  expect(file.errors?.[0]?.status).toBe("error");
+  expect(file.run.provider_error_count).toBe(file.errors?.length);
+  expect(file.run.provider_error).toContain("usage limit");
+  expect(JSON.stringify(file)).not.toContain(secret);
+  const report = await readFile(join(scanOut, "report.md"), "utf8");
+  expect(report).toContain(`Provider errors: ${file.run.provider_error_count}.`);
+  expect(report).toContain("## Provider errors");
+  expect(report).not.toContain(secret);
+  expect(report).not.toContain("Malformed reply");
+  const sarif = sarifLogSchema.parse(
+    JSON.parse(await readFile(join(scanOut, "findings.sarif"), "utf8")) as unknown,
+  );
+  expect(sarif.runs[0].results).toEqual([]);
+  expect(provider.calls.filter((call) => call.jsonSchema !== undefined)).toHaveLength(1);
+
+  const prOut = join(root, "pr-out");
+  expect(await runCli(["pr", "-", "--repo", root, "--out", prOut, "--keep-inconclusive"], io)).toBe(
+    1,
+  );
+  const prFile = findingsFileSchema.parse(
+    JSON.parse(await readFile(join(prOut, "findings.json"), "utf8")) as unknown,
+  );
+  expect(prFile.findings).toEqual([]);
+  expect(prFile.errors?.[0]?.status).toBe("error");
+  expect(prFile.run.provider_error_count).toBeGreaterThan(0);
+
+  await writeFile(
+    join(root, "truth.json"),
+    `${JSON.stringify({
+      schema_version: "1",
+      entries: [
+        {
+          id: "open",
+          class: "authz_idor",
+          cwe: "CWE-639",
+          file: "app.ts",
+          start_line: 1,
+          end_line: 1,
+          vulnerable: true,
+        },
+      ],
+    })}\n`,
+  );
+  const benchOut = join(root, "bench-out");
+  const stderr: string[] = [];
+  expect(
+    await runCli(["bench", root, "--stage", "findings", "--out", benchOut, "--keep-inconclusive"], {
+      ...io,
+      stderr(text) {
+        stderr.push(text);
+      },
+    }),
+  ).toBe(1);
+  expect(stderr.join("")).toContain("provider error");
+  const bench = benchResultSchema.parse(
+    JSON.parse(await readFile(join(benchOut, "bench-result.json"), "utf8")) as unknown,
+  );
+  expect(bench.run.provider_error_count).toBeGreaterThan(0);
+  expect(bench.counts.detections).toBe(0);
+  expect(await readFile(join(benchOut, "bench-result.md"), "utf8")).toContain("provider errors:");
 });

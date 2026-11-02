@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { expect, it } from "vitest";
 import { CODEX_MAX_CONCURRENCY } from "../src/providers/codex.js";
+import { PROVIDER_LIMIT_STOP, ProviderRequestError } from "../src/providers/errors.js";
 import { FakeProvider } from "../src/providers/types.js";
 import { planAuthz } from "../src/hunters/authz-idor.js";
 import { planInjection } from "../src/hunters/injection.js";
@@ -330,4 +331,77 @@ it("leaves coverage discovery empty when no provider is configured", async () =>
   };
   expect(await runCli(["scan", root, "--out", out, "--discovery-budget", "0"], io)).toBe(1);
   expect(captured.stderr.join("")).toContain("--discovery-budget must be a positive integer");
+});
+
+it("records a provider failure on the discovery unit instead of reviewed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "faultline-discovery-error-"));
+  const body = ["export function handle(req, res) {", "  res.send(req.query.q);", "}", ""].join(
+    "\n",
+  );
+  await writeProject(root, {
+    "src/a.ts": body,
+    "src/b.ts": body,
+    "src/c.ts": body,
+  });
+  const inventory = emptyInventory("errors", ["src/a.ts", "src/b.ts", "src/c.ts"]);
+  inventory.handlers = [
+    handler("src/a.ts", 1, 3),
+    handler("src/b.ts", 1, 3),
+    handler("src/c.ts", 1, 3),
+  ];
+  const provider = new FakeProvider(() => {
+    throw new ProviderRequestError(
+      "codex",
+      "codex exec exited with status 1: You've hit your usage limit.",
+    );
+  });
+  const result = await discoverSites({ root, inventory, provider, budget: 3 });
+  expect(provider.calls.length).toBeGreaterThan(0);
+  expect(provider.calls.length).toBeLessThan(3);
+  expect(result.halted).toContain("usage limit");
+  expect(result.sites).toEqual([]);
+  const called = result.records.filter((record) => record.status === "error");
+  expect(called).toHaveLength(3);
+  expect(result.records.some((record) => record.status === "reviewed")).toBe(false);
+  expect(result.records.some((record) => record.reason.includes(PROVIDER_LIMIT_STOP))).toBe(true);
+
+  const out = await mkdtemp(join(tmpdir(), "faultline-discovery-error-out-"));
+  await writeProject(root, {
+    "routes/items.ts": [
+      "export function show(req, res) {",
+      "  res.json(req.params.id);",
+      "}",
+      "",
+    ].join("\n"),
+  });
+  const scanProvider = new FakeProvider((input) => {
+    const system = input.messages[0]?.content ?? "";
+    if (system.includes("list candidate security sites")) {
+      throw new ProviderRequestError(
+        "codex",
+        "codex exec exited with status 1: You've hit your usage limit.",
+      );
+    }
+    return "Architecture summary.";
+  });
+  const stderr: string[] = [];
+  expect(
+    await runCli(["scan", root, "--out", out], {
+      cwd: root,
+      env: {},
+      provider: scanProvider,
+      stdout() {},
+      stderr(text) {
+        stderr.push(text);
+      },
+    }),
+  ).toBe(1);
+  expect(stderr.join("")).toContain("provider error");
+  const coverage = coverageFileSchema.parse(
+    JSON.parse(await readFile(join(out, "coverage.json"), "utf8")) as unknown,
+  );
+  const failed = coverage.discovery.filter((record) => record.status === "error");
+  expect(failed.length).toBeGreaterThan(0);
+  expect(coverage.discovery.some((record) => record.status === "reviewed")).toBe(false);
+  expect(failed.some((record) => record.reason.includes("usage limit"))).toBe(true);
 });
